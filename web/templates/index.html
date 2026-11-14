@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinMath Lab · Simulador de matemáticas financieras</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script defer type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</head>
+<body>
+<div class="app">
+  <!-- ============ Menú lateral ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="brand-mark">∑</span><div><strong>FinMath Lab</strong><small>Matemáticas financieras</small></div></div>
+    <nav>
+      <button class="nav-item active" data-module="annuity"><span>▤</span> Simulador de cuotas</button>
+      <button class="nav-item" data-module="compound"><span>↗</span> Interés compuesto</button>
+      <button class="nav-item" data-module="rates"><span>%</span> Tasas de interés</button>
+      <button class="nav-item" data-module="focal"><span>⌖</span> Fechas focales</button>
+      <button class="nav-item" data-module="compare"><span>⇄</span> Comparar simulaciones</button>
+      <button class="nav-item" data-module="catalog"><span>⚙</span> Catálogo de tasas</button>
+    </nav>
+    <p class="side-note">Herramienta educativa. Todas las tasas y condiciones son configurables; los valores iniciales son solo ejemplos didácticos.</p>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menú">☰</button>
+      <h1 id="pageTitle">Simulador de cuotas</h1>
+      <div class="top-controls">
+        <label class="inline">Moneda
+          <select id="currency">
+            <option value="COP">COP · Peso colombiano</option><option value="USD">USD · Dólar</option>
+            <option value="EUR">EUR · Euro</option><option value="MXN">MXN · Peso mexicano</option>
+            <option value="PEN">PEN · Sol</option><option value="CLP">CLP · Peso chileno</option>
+            <option value="ARS">ARS · Peso argentino</option>
+          </select>
+        </label>
+        <div class="seg" id="viewToggle" role="group" aria-label="Vista">
+          <button data-view="simple">Sencilla</button><button data-view="academic" class="active">Académica</button>
+        </div>
+        <div class="export" id="exportBox">
+          <button class="btn ghost" data-export="xlsx">Excel</button>
+          <button class="btn ghost" data-export="pdf">PDF</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- ============ Simulador de cuotas / anualidades ============ -->
+      <section class="module active" id="mod-annuity" data-title="Simulador de cuotas">
+        <div class="layout">
+          <form class="panel form" data-endpoint="annuity" autocomplete="off">
+            <h2>Datos de la simulación</h2>
+            <fieldset><legend>¿Qué desea calcular?</legend>
+              <label class="field"><span>Cálculo</span>
+                <select name="mode">
+                  <option value="cuota_pv">Valor de la cuota (dada la deuda)</option>
+                  <option value="pv_cuota">Monto que puedo financiar (dada mi cuota)</option>
+                  <option value="cuota_fv">Cuota de ahorro para una meta (FV)</option>
+                  <option value="fv_cuota">Valor futuro de mis aportes</option>
+                  <option value="n_pv_cuota">Número de cuotas (deuda y cuota)</option>
+                </select></label>
+              <label class="field"><span>Tipo de anualidad</span>
+                <select name="annuity_type">
+                  <option value="vencida">Vencida (pagos al final)</option>
+                  <option value="anticipada">Anticipada (pagos al inicio)</option>
+                  <option value="diferida">Diferida (con periodo de gracia)</option>
+                  <option value="perpetua">Perpetua</option>
+                </select></label>
+              <label class="field" data-when="annuity_type=diferida"><span>Periodos diferidos (gracia)</span>
+                <input type="number" name="defer_periods" min="1" step="1" value="3"></label>
+              <label class="field" data-when="annuity_type=diferida|perpetua"><span>Base de los pagos</span>
+                <select name="deferred_base"><option value="vencida">Vencidos</option><option value="anticipada">Anticipados</option></select></label>
+            </fieldset>
+
+            <fieldset><legend>Persona</legend>
+              <div class="row2">
+                <label class="field"><span>Fecha de nacimiento</span><input type="date" name="birth_date"></label>
+                <label class="field"><span>Edad</span><input type="number" name="age" min="0" max="120" step="1" placeholder="auto"></label>
+              </div>
+            </fieldset>
+
+            <fieldset><legend>Valores</legend>
+              <label class="field" data-when="mode=cuota_pv|n_pv_cuota"><span>Monto / deuda inicial (PV)</span>
+                <input type="number" name="pv" min="0" step="any" value="10000000"></label>
+              <label class="field" data-when="mode=cuota_fv"><span>Meta de ahorro (FV)</span>
+                <input type="number" name="fv" min="0" step="any" value="10000000"></label>
+              <label class="field" data-when="mode=pv_cuota|fv_cuota|n_pv_cuota"><span>Cuota (lo que puedo pagar por periodo)</span>
+                <input type="number" name="cuota" min="0" step="any" value="500000"></label>
+            </fieldset>
+
+            <fieldset><legend>Tasa de interés</legend>
+              <div class="row2 rate-row">
+                <label class="field"><span>Valor (%)</span><input type="number" name="rate_value" min="0" step="any" value="18"></label>
+                <label class="field"><span>Tipo de tasa</span><select name="rate_code" class="rate-select" data-default="EA"></select></label>
+              </div>
+              <p class="hint rate-desc"></p>
+            </fieldset>
+
+            <fieldset><legend>Plazo y pagos</legend>
+              <label class="field"><span>Periodicidad de pago</span>
+                <select name="pay_period_months">
+                  <option value="1">Mensual</option><option value="2">Bimestral</option><option value="3">Trimestral</option>
+                  <option value="6">Semestral</option><option value="12">Anual</option></select></label>
+              <div class="row2" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota;annuity_type=vencida|anticipada|diferida">
+                <label class="field"><span>Plazo</span><input type="number" name="term_value" min="0" step="any" value="24"></label>
+                <label class="field"><span>Unidad</span><select name="term_unit"><option value="months">Meses</option><option value="years">Años</option></select></label>
+              </div>
+              <label class="field" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota;annuity_type=vencida|anticipada|diferida"><span>…o número de cuotas (opcional)</span>
+                <input type="number" name="n_cuotas" min="1" step="1" placeholder="se deduce del plazo"></label>
+              <div class="row2">
+                <label class="field"><span>Fecha inicial</span><input type="date" name="start_date" class="today"></label>
+                <label class="field" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota;annuity_type=vencida|anticipada|diferida"><span>Fecha final (opcional)</span><input type="date" name="end_date"></label>
+              </div>
+            </fieldset>
+
+            <fieldset data-when="mode=cuota_pv|pv_cuota|n_pv_cuota;annuity_type=vencida|anticipada|diferida"><legend>Costos adicionales</legend>
+              <label class="field"><span>Seguro</span>
+                <select name="insurance_type">
+                  <option value="none">Sin seguro</option>
+                  <option value="pct_balance">% mensual sobre el saldo</option>
+                  <option value="pct_initial">% mensual sobre el monto inicial</option>
+                  <option value="fixed">Valor fijo mensual</option></select></label>
+              <label class="field" data-when="insurance_type=pct_balance|pct_initial|fixed"><span>Valor del seguro (% o monto)</span>
+                <input type="number" name="insurance_value" min="0" step="any" value="0.05"></label>
+            </fieldset>
+            <div class="form-actions">
+              <button type="submit" class="btn primary">Simular</button>
+              <button type="button" class="btn ghost" data-action="example">Restablecer ejemplo</button>
+            </div>
+          </form>
+          <div class="results-host" data-module="annuity" data-table-tab="Plan de pagos / amortización"></div>
+        </div>
+      </section>
+
+      <!-- ============ Interés compuesto ============ -->
+      <section class="module" id="mod-compound" data-title="Interés compuesto">
+        <div class="layout">
+          <form class="panel form" data-endpoint="compound" autocomplete="off">
+            <h2>Interés compuesto</h2>
+            <fieldset><legend>Escenario</legend>
+              <label class="field"><span>¿Qué desea calcular?</span>
+                <select name="scenario">
+                  <option value="A">A · Valor futuro (FV)</option>
+                  <option value="B">B · Capital inicial (PV)</option>
+                  <option value="C">C · Tasa de interés</option>
+                  <option value="D">D · Tiempo necesario</option>
+                </select></label>
+            </fieldset>
+            <fieldset><legend>Valores</legend>
+              <label class="field" data-when="scenario=A|C|D"><span>Capital inicial (PV)</span><input type="number" name="pv" min="0" step="any" value="5000000"></label>
+              <label class="field" data-when="scenario=B|C|D"><span>Valor futuro (FV)</span><input type="number" name="fv" min="0" step="any" value="8000000"></label>
+            </fieldset>
+            <fieldset><legend>Tasa</legend>
+              <div class="row2 rate-row">
+                <label class="field" data-when="scenario=A|B|D"><span>Valor (%)</span><input type="number" name="rate_value" min="0" step="any" value="12"></label>
+                <label class="field"><span data-when-label="scenario=C:Expresar tasa como|:Tipo de tasa">Tipo de tasa</span><select name="rate_code" class="rate-select" data-default="EA"></select></label>
+              </div>
+              <p class="hint rate-desc"></p>
+              <label class="field"><span>Periodo de capitalización</span>
+                <select name="calc_period_months">
+                  <option value="auto">Según el tipo de tasa</option><option value="1">Mensual</option><option value="2">Bimestral</option>
+                  <option value="3">Trimestral</option><option value="4">Cuatrimestral</option><option value="6">Semestral</option><option value="12">Anual</option></select></label>
+            </fieldset>
+            <fieldset><legend>Plazo y fechas</legend>
+              <div class="row2" data-when="scenario=A|B|C">
+                <label class="field"><span>Plazo</span><input type="number" name="term_value" min="0" step="any" value="3"></label>
+                <label class="field"><span>Unidad</span><select name="term_unit"><option value="months">Meses</option><option value="years" selected>Años</option></select></label>
+              </div>
+              <div class="row2">
+                <label class="field"><span>Fecha inicial</span><input type="date" name="start_date" class="today"></label>
+                <label class="field" data-when="scenario=A|B|C"><span>Fecha final (opcional)</span><input type="date" name="end_date"></label>
+              </div>
+              <p class="hint" data-when="scenario=A|B|C">Si deja el plazo vacío, se calcula con las fechas.</p>
+            </fieldset>
+            <div class="form-actions"><button type="submit" class="btn primary">Calcular</button></div>
+          </form>
+          <div class="results-host" data-module="compound" data-table-tab="Tabla de crecimiento"></div>
+        </div>
+      </section>
+
+      <!-- ============ Tasas ============ -->
+      <section class="module" id="mod-rates" data-title="Tasas de interés">
+        <div class="layout">
+          <form class="panel form" data-endpoint="rates" autocomplete="off">
+            <h2>Conversión de tasas</h2>
+            <fieldset><legend>Tasa de partida</legend>
+              <div class="row2 rate-row">
+                <label class="field"><span>Valor (%)</span><input type="number" name="rate_value" min="0" step="any" value="24"></label>
+                <label class="field"><span>Tipo de tasa</span><select name="rate_code" class="rate-select" data-default="NM"></select></label>
+              </div>
+              <p class="hint rate-desc"></p>
+              <label class="field"><span>Periodo de cálculo (tasa periódica a usar)</span>
+                <select name="target_months"><option value="1">Mensual</option><option value="2">Bimestral</option><option value="3">Trimestral</option>
+                  <option value="4">Cuatrimestral</option><option value="6">Semestral</option><option value="12">Anual</option></select></label>
+            </fieldset>
+            <p class="hint">La conversión siempre pasa por la tasa periódica y la efectiva anual (EA). Puede cambiar el significado de las siglas en el <b>Catálogo de tasas</b>.</p>
+            <div class="form-actions"><button type="submit" class="btn primary">Convertir</button></div>
+          </form>
+          <div class="results-host" data-module="rates" data-table-tab=""></div>
+        </div>
+      </section>
+
+      <!-- ============ Fechas focales ============ -->
+      <section class="module" id="mod-focal" data-title="Fechas focales">
+        <div class="layout">
+          <form class="panel form" data-endpoint="focal" autocomplete="off">
+            <h2>Equivalencia en fecha focal</h2>
+            <fieldset><legend>Fechas</legend>
+              <div class="row2">
+                <label class="field"><span>Fecha inicial</span><input type="date" name="start_date" value="2025-01-01"></label>
+                <label class="field"><span>Fecha final</span><input type="date" name="end_date" value="2026-01-01"></label>
+              </div>
+              <label class="field"><span>Fecha focal</span><input type="date" name="focal_date" value="2025-07-01"></label>
+              <label class="field"><span>Conteo de tiempo</span>
+                <select name="basis"><option value="365">Años de 365 días</option><option value="360">Años de 360 días</option><option value="30/360">Convención 30/360</option></select></label>
+            </fieldset>
+            <fieldset><legend>Tasa para trasladar</legend>
+              <div class="row2 rate-row">
+                <label class="field"><span>Valor (%)</span><input type="number" name="rate_value" min="0" step="any" value="12"></label>
+                <label class="field"><span>Tipo de tasa</span><select name="rate_code" class="rate-select" data-default="EA"></select></label>
+              </div>
+              <p class="hint rate-desc"></p>
+            </fieldset>
+            <fieldset><legend>Obligaciones y pagos</legend>
+              <p class="hint">Deje el valor en blanco en <b>una</b> fila para calcularlo (incógnita).</p>
+              <div id="focalItems" class="items"></div>
+              <button type="button" class="btn ghost" id="addFocalItem">+ Agregar fila</button>
+            </fieldset>
+            <div class="form-actions"><button type="submit" class="btn primary">Calcular equivalencia</button></div>
+          </form>
+          <div class="results-host" data-module="focal" data-table-tab="Traslado de valores"></div>
+        </div>
+      </section>
+
+      <!-- ============ Comparación ============ -->
+      <section class="module" id="mod-compare" data-title="Comparar simulaciones">
+        <div class="layout">
+          <form class="panel form" data-endpoint="compare" autocomplete="off">
+            <h2>Comparación de créditos</h2>
+            <fieldset><legend>Datos base</legend>
+              <label class="field"><span>Monto (PV)</span><input type="number" name="pv" min="0" step="any" value="10000000"></label>
+              <div class="row2 rate-row">
+                <label class="field"><span>Tasa (%)</span><input type="number" name="rate_value" min="0" step="any" value="18"></label>
+                <label class="field"><span>Tipo</span><select name="rate_code" class="rate-select" data-default="EA"></select></label>
+              </div>
+              <label class="field"><span>Periodicidad</span>
+                <select name="pay_period_months"><option value="1">Mensual</option><option value="2">Bimestral</option><option value="3">Trimestral</option><option value="6">Semestral</option><option value="12">Anual</option></select></label>
+              <label class="field"><span>Tipo de anualidad</span><select name="annuity_type"><option value="vencida">Vencida</option><option value="anticipada">Anticipada</option></select></label>
+              <label class="field"><span>Fecha inicial</span><input type="date" name="start_date" class="today"></label>
+              <label class="field"><span>Seguro</span><select name="insurance_type"><option value="none">Sin seguro</option><option value="pct_balance">% mensual sobre saldo</option><option value="pct_initial">% mensual sobre monto</option><option value="fixed">Valor fijo mensual</option></select></label>
+              <label class="field" data-when="insurance_type=pct_balance|pct_initial|fixed"><span>Valor del seguro</span><input type="number" name="insurance_value" min="0" step="any" value="0.05"></label>
+            </fieldset>
+            <fieldset><legend>Simulaciones</legend>
+              <p class="hint">Cada fila puede cambiar plazo, monto o tasa; si se deja vacío, usa el dato base.</p>
+              <div id="compareItems" class="items"></div>
+              <button type="button" class="btn ghost" id="addCompare">+ Agregar simulación</button>
+            </fieldset>
+            <div class="form-actions"><button type="submit" class="btn primary">Comparar</button></div>
+          </form>
+          <div class="results-host" data-module="compare" data-table-tab=""></div>
+        </div>
+      </section>
+
+      <!-- ============ Catálogo de tasas ============ -->
+      <section class="module" id="mod-catalog" data-title="Catálogo de tasas">
+        <div class="panel wide">
+          <h2>Catálogo configurable de tasas</h2>
+          <p class="hint">Las siglas cambian según la universidad o el material. Defina aquí qué significa cada una: si es <b>efectiva</b> o <b>nominal</b>, su periodo (para nominales, el periodo de capitalización; siempre anual) y si es <b>anticipada</b>. Las marcadas «por configurar» no se pueden usar hasta definirlas.</p>
+          <div class="table-wrap"><table class="data" id="catalogTable">
+            <thead><tr><th>Sigla</th><th>Nombre</th><th>Tipo</th><th>Periodo (meses)</th><th>Anticipada</th><th>Por configurar</th><th>Significado</th><th></th></tr></thead>
+            <tbody></tbody></table></div>
+          <div class="form-actions">
+            <button class="btn ghost" id="catAdd">+ Agregar sigla</button>
+            <button class="btn primary" id="catSave">Guardar catálogo</button>
+            <button class="btn ghost" id="catReset">Restaurar valores predeterminados</button>
+          </div>
+          <div class="msg" id="catMsg"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<template id="tpl-results">
+  <div class="results">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="result">1 · Resultado</button>
+      <button class="tab" data-tab="proc">2 · Procedimiento</button>
+      <button class="tab" data-tab="table">Tabla</button>
+    </div>
+    <div class="msg"></div>
+    <div class="pane" data-pane="result"><div class="empty">Ingrese los datos y presione <b>Simular</b>.</div></div>
+    <div class="pane hidden" data-pane="proc"></div>
+    <div class="pane hidden" data-pane="table"></div>
+  </div>
+</template>
+</body>
+</html>

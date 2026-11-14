@@ -1,0 +1,146 @@
+[
+  {
+    "code": "EA",
+    "name": "Efectiva Anual",
+    "kind": "effective",
+    "months": 12,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "EM",
+    "name": "Efectiva Mensual",
+    "kind": "effective",
+    "months": 1,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "EB",
+    "name": "Efectiva Bimestral",
+    "kind": "effective",
+    "months": 2,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "ET",
+    "name": "Efectiva Trimestral",
+    "kind": "effective",
+    "months": 3,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "EV",
+    "name": "Efectiva Cuatrimestral",
+    "kind": "effective",
+    "months": 4,
+    "anticipated": false,
+    "pending": false,
+    "note": "Convención: V = cuatrimestre."
+  },
+  {
+    "code": "ES",
+    "name": "Efectiva Semestral",
+    "kind": "effective",
+    "months": 6,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "NA",
+    "name": "Nominal Anual (capitalización anual)",
+    "kind": "nominal",
+    "months": 12,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "NM",
+    "name": "Nominal Anual capitalizable Mensual",
+    "kind": "nominal",
+    "months": 1,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "NB",
+    "name": "Nominal Anual capitalizable Bimestral",
+    "kind": "nominal",
+    "months": 2,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "NT",
+    "name": "Nominal Anual capitalizable Trimestral",
+    "kind": "nominal",
+    "months": 3,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "NS",
+    "name": "Nominal Anual capitalizable Semestral",
+    "kind": "nominal",
+    "months": 6,
+    "anticipated": false,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "TV",
+    "name": "Nominal Anual Trimestre Vencido",
+    "kind": "nominal",
+    "months": 3,
+    "anticipated": false,
+    "pending": false,
+    "note": "Convención: TV = trimestre vencido."
+  },
+  {
+    "code": "MV",
+    "name": "Nominal Anual Mes Vencido",
+    "kind": "nominal",
+    "months": 1,
+    "anticipated": false,
+    "pending": false,
+    "note": "Convención: MV = mes vencido."
+  },
+  {
+    "code": "TA",
+    "name": "Nominal Anual Trimestre Anticipado",
+    "kind": "nominal",
+    "months": 3,
+    "anticipated": true,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "MA",
+    "name": "Nominal Anual Mes Anticipado",
+    "kind": "nominal",
+    "months": 1,
+    "anticipated": true,
+    "pending": false,
+    "note": ""
+  },
+  {
+    "code": "MT",
+    "name": "Mensual/Trimestral (por configurar)",
+    "kind": "nominal",
+    "months": 1,
+    "anticipated": false,
+    "pending": true,
+    "note": "Sigla ambigua: su significado depende del material académico. Configúrela en el catálogo."
+  }
+]
