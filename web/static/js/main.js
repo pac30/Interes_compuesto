@@ -62,10 +62,6 @@ async function boot() {
   controllers.focal = initFocal();
   controllers.compare = initCompare();
 
-  // cuando cambia el catálogo se vuelve a simular lo que esté abierto
-  const reCalc = () => Object.values(controllers).forEach((c) => c.run());
-  document.getElementById("catSave").addEventListener("click", () => setTimeout(reCalc, 400));
-  document.getElementById("catReset").addEventListener("click", () => setTimeout(reCalc, 400));
 
   window.addEventListener("go-annuity", (e) => {
     go("annuity");

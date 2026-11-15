@@ -59,7 +59,7 @@ export function populateRateSelects(catalog) {
   document.querySelectorAll("select.rate-select").forEach((sel) => {
     const prev = sel.value || sel.dataset.default;
     sel.innerHTML = catalog.map((s) =>
-      `<option value="${esc(s.code)}">${esc(s.code)} — ${esc(s.name)}${s.pending ? " (por configurar)" : ""}</option>`).join("");
+      `<option value="${esc(s.code)}">${esc(s.code)} — ${esc(s.name)}</option>`).join("");
     if (catalog.some((s) => s.code === prev)) sel.value = prev;
     updateRateDesc(sel, catalog);
   });
@@ -69,7 +69,7 @@ export function updateRateDesc(sel, catalog) {
   const box = sel.closest("fieldset")?.querySelector(".rate-desc");
   if (!box) return;
   const s = catalog.find((x) => x.code === sel.value);
-  box.textContent = s ? (s.pending ? "⚠ " + s.note : `${s.description}.${s.note ? " " + s.note : ""}`) : "";
+  box.textContent = s ? `${s.description}.${s.note ? " " + s.note : ""}` : "";
 }
 
 export function setFormValues(form, values) {

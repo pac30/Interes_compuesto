@@ -68,7 +68,8 @@ def run(data):
     proc.table(rows)
     res = R.resolve(rate_val, spec, 12, proc)
     ea = res["ea"]
-    proc.text("Como el tiempo se mide en **años**, se usa la tasa efectiva anual (EA) como tasa de traslado.")
+    proc.text("En las ecuaciones de valor **nunca** se usa una tasa nominal: siempre se convierte a efectiva. Como el "
+              "tiempo se mide en **años**, se usa la tasa efectiva anual (EA) como tasa de traslado.", academic=False)
 
     # factores
     for k, it in enumerate(items):
@@ -79,9 +80,13 @@ def run(data):
         it["dir"] = "capitaliza" if t > 0 else ("descuenta" if t < 0 else "ya está en la fecha focal")
 
     proc.step(4, "Identificación de la fórmula financiera")
-    proc.text("Dos conjuntos de obligaciones son **equivalentes** si, al trasladarlos a una misma fecha (fecha focal) "
-              "con la misma tasa, suman lo mismo. Cada valor se traslada con:")
+    proc.text("En una ecuación de valor la suma de activos es igual a la de pasivos, la de ingresos a la de egresos y "
+              "la de deudas a la de pagos. Dos conjuntos son **equivalentes** si, al trasladarlos a una misma fecha "
+              "(fecha focal) con la misma tasa efectiva, suman lo mismo. Cada valor se traslada con:", academic=False)
     proc.math("V_F = V\\,(1+i)^{t}", result=True)
+    proc.where([("V_F", "valor trasladado a la fecha focal"), ("V", "valor de la deuda o del pago en su fecha"),
+                ("i", "tasa **efectiva** (nunca nominal)"),
+                ("t", "diferencia entre la fecha focal y la fecha del valor, en años")])
     proc.text("donde $t$ es el tiempo en años desde la fecha del valor hasta la fecha focal: **positivo** si el valor "
               "está antes del foco (se capitaliza) y **negativo** si está después (se descuenta). La ecuación de "
               "equivalencia es:")

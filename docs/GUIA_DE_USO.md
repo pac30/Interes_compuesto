@@ -6,7 +6,7 @@ FinMath Lab es un simulador web de **matemáticas financieras** hecho en Python.
 
 - interés compuesto,
 - conversión entre tasas de interés,
-- anualidades y cuotas de crédito o ahorro,
+- anualidades (vencidas y anticipadas) y cuotas de crédito o ahorro,
 - equivalencia de obligaciones en una fecha focal,
 - comparación de varias simulaciones.
 
@@ -25,7 +25,6 @@ Para cada resultado muestra **el procedimiento matemático completo en 7 pasos**
 Notas:
 - Si Windows SmartScreen avisa de "editor desconocido", elija *Más información → Ejecutar de todas formas*. El ejecutable no está firmado digitalmente.
 - Las fórmulas y los gráficos se cargan desde internet (KaTeX y Chart.js). Los cálculos funcionan sin conexión.
-- El catálogo de tasas se guarda en la carpeta `config` junto al ejecutable.
 
 ### Opción B — Desde el código
 
@@ -41,17 +40,19 @@ Ejecute `build_exe.bat`. Crea un entorno temporal e instala PyInstaller. Necesit
 
 ## 3. Recorrido por la pantalla
 
-- **Barra lateral:** cambia de módulo (Simulador de cuotas, Interés compuesto, Tasas de interés, Fechas focales, Comparar simulaciones, Catálogo de tasas).
+- **Barra lateral:** cambia de módulo (Simulador de cuotas, Interés compuesto, Tasas de interés, Fechas focales, Comparar simulaciones, Guía de tasas).
 - **Barra superior:** selector de **moneda** (COP por defecto), interruptor **Sencilla / Académica** y botones **Excel** y **PDF**.
 - **Formulario (izquierda):** datos de entrada. Se recalcula solo cuando usted deja de escribir.
 - **Resultados (derecha), con tres pestañas:**
   1. **Resultado:** tarjetas con las cifras y gráficos. La cifra calculada aparece destacada.
   2. **Procedimiento:** los 7 pasos matemáticos.
-  3. **Tabla:** plan de pagos / amortización, tabla de crecimiento o traslado de valores, según el módulo.
+  3. **Tabla:** plan de pagos, tabla de crecimiento o traslado de valores, según el módulo.
 - Cada tarjeta tiene un botón **Ver procedimiento** que lleva al paso donde se calculó.
 - **Sencilla / Académica:** la vista sencilla oculta las fórmulas largas y deja lo esencial. La académica muestra todo.
 
 ### Los 7 pasos del procedimiento
+
+En el paso 4 cada fórmula va acompañada de **la descripción de cada variable** ("Donde: …") y esa descripción se ve también en la vista sencilla.
 
 1. Identificación de los datos.
 2. Identificación de la tasa.
@@ -77,7 +78,17 @@ Calcula créditos y planes de ahorro con anualidades.
 | Valor futuro de mis aportes | ¿Cuánto tendré si aporto tal cuota? |
 | Número de cuotas | ¿En cuánto tiempo pago una deuda con esta cuota? |
 
-**Tipo de anualidad:** vencida (pago al final del periodo), anticipada (al inicio), diferida (con periodos de gracia) y perpetua (sin fin).
+**Tipo de anualidad:** vencida (pago al final del periodo) o anticipada (pago al inicio). El plan de pagos es lo que antes se llamaba tabla de amortización: muestra cada cuota con su interés y su abono a capital.
+
+**Fórmulas** (con i = tasa efectiva del periodo de pago, n = número de cuotas, A = cuota):
+
+| Caso | Fórmula |
+|---|---|
+| Valor presente, vencida | PV = A · [1 − (1+i)^−n] / i |
+| Valor presente, anticipada | PV = A · [1 − (1+i)^−n] / i · (1+i) |
+| Valor futuro, vencida | FV = A · [(1+i)^n − 1] / i |
+| Valor futuro, anticipada | FV = A · [(1+i)^n − 1] / i · (1+i) |
+| Número de cuotas | n = −ln[1 − PV·i / A] / ln(1+i)  (anticipada: A·(1+i) en el denominador) |
 
 **Datos principales:**
 - **Monto / deuda (PV), Meta de ahorro (FV)** o **Cuota**, según lo que se calcule.
@@ -91,9 +102,8 @@ Calcula créditos y planes de ahorro con anualidades.
 **Resultados:** cuota, total pagado, intereses, capital amortizado, seguro, plan de pagos y gráficos.
 
 Reglas que conviene conocer:
-- En la anualidad diferida, los intereses de la gracia se capitalizan y el plazo cuenta solo los pagos.
-- El seguro no se cobra durante la gracia.
 - El seguro "% sobre saldo" no se admite al calcular el monto financiable, porque la cuota total dejaría de ser constante.
+- Las anualidades diferidas y las perpetuas no están incluidas.
 - Si el plazo no es compatible con la periodicidad (por ejemplo 10 meses con pagos trimestrales), la aplicación lo rechaza y lo explica.
 
 ### 4.2 Interés compuesto
@@ -107,37 +117,43 @@ Cuatro escenarios con un mismo formulario:
 | C | Tasa de interés | i = (FV/PV)^(1/n) − 1 |
 | D | Tiempo | n = ln(FV/PV) / ln(1+i) |
 
-Se puede indicar el periodo de capitalización y el plazo, o las fechas inicial y final. Devuelve la tabla de crecimiento y una gráfica.
+Variables: **FV** valor futuro, **PV** valor presente (capital inicial), **i** tasa efectiva del periodo, **n** número de periodos. Se puede indicar el periodo de capitalización y el plazo, o las fechas inicial y final. Devuelve la tabla de crecimiento y una gráfica.
 
 ### 4.3 Tasas de interés
 
 Convierte una tasa de un tipo a otro: ingrese el valor, su tipo (EA, EM, NM, TV, …) y el periodo de cálculo. Muestra la EA equivalente, la tasa periódica usada, la fórmula de cada conversión y una tabla con la tasa expresada en todas las modalidades. El nombre completo de cada sigla se muestra siempre.
 
-Regla general: toda conversión pasa por la **EA** (tasa efectiva anual). La tasa nominal es siempre anual y su tasa periódica es J/m. La tasa anticipada se pasa a vencida con i = ia/(1−ia).
+**Variables:** **i** tasa efectiva (o periódica), **j** tasa nominal, **m** número de periodos por año, **iₐ** tasa efectiva anticipada.
+
+**Nombres y periodos.** La tasa **efectiva (periódica)** y la **nominal** (capitalizable, convertible o vencida) existen en periodo mensual, bimestral, trimestral, cuatrimestral, semestral y anual.
+
+**Reglas de conversión**
+
+- Efectiva ↔ nominal **del mismo periodo**: i = j / m  y  j = i · m.
+- Cualquier otro cambio de periodo usa **tasas equivalentes**: (1+i₁)^n₁ = (1+i₂)^n₂, donde n es cuántas veces cabe el periodo en un año.
+- Tasas anticipadas: i = iₐ / (1 − iₐ)  e  iₐ = i / (1 + i). **Solo** se pasa de efectiva a anticipada; una nominal nunca se convierte directamente a anticipada. Si se necesita una nominal anticipada, primero se pasa de efectiva a efectiva anticipada y luego jₐ = iₐ · m.
 
 ### 4.4 Fechas focales
 
 Traslada obligaciones y pagos a una fecha común para comparar o resolver una incógnita.
 
+En una ecuación de valor la suma de activos es igual a la de pasivos, la de ingresos a la de egresos y la de deudas a la de pagos. Cada valor se traslada con V_F = V·(1+i)^t, donde **V_F** es el valor en la fecha focal, **V** el valor en su fecha, **i** la tasa **efectiva** y **t** la diferencia entre la fecha focal y la fecha del valor (en años). **Nunca se usa una tasa nominal**: siempre se convierte a efectiva.
+
 1. Indique fecha inicial, fecha final, **fecha focal**, tasa y conteo de tiempo (365, 360 o 30/360).
 2. Agregue las obligaciones: etiqueta, grupo (**deuda** o **pago**), fecha y monto.
 3. Deje **un solo monto en blanco** si quiere que la aplicación lo calcule.
 
-Cada valor se traslada con V_F = V·(1+EA)^t, con t en años. Resultado: línea de tiempo, ecuación de equivalencia (Σdeudas = Σpagos) y el valor de la incógnita o la diferencia entre ambos lados.
+Resultado: línea de tiempo, ecuación de equivalencia (Σdeudas = Σpagos) y el valor de la incógnita o la diferencia entre ambos lados.
 
 ### 4.5 Comparar simulaciones
 
 Compara créditos con los mismos datos base y distinto plazo (por ejemplo 12, 24 y 36 meses). Muestra la cuota, los intereses y el total pagado de cada uno, las diferencias entre ellos y cuál sale más económico, con un gráfico de barras.
 
-### 4.6 Catálogo de tasas
+### 4.6 Guía de tasas
 
-Aquí se definen las siglas disponibles. Cada una tiene: sigla, nombre, tipo (efectiva o nominal), meses de capitalización y si es anticipada.
+Tabla de consulta (solo lectura) con las siglas disponibles, su nombre completo, tipo, periodo, número de periodos por año (m) y si son vencidas o anticipadas, junto con las reglas de conversión.
 
-- Puede editar, agregar o eliminar siglas, y restablecer las de fábrica.
-- **MT** viene "por configurar" porque su significado depende de su material de estudio. No se puede usar hasta definirla. Si la usa antes, la aplicación se lo pide en vez de adivinar.
-- Los cambios se guardan en `config/rate_catalog.json` y las simulaciones abiertas se recalculan solas.
-
-Siglas incluidas: EA, EM, EB, ET, ES, EV, NA, NM, NB, NT, NS, TV, MV, TA, MA y MT.
+Siglas: EA, ES, EV (efectivas anual, semestral y cuatrimestral), ET, EB, EM, NA, NS, NV, NT, NB, NM (nominales capitalizables), TV, MV (nominales trimestre y mes vencido) y TA, MA (nominales trimestre y mes anticipado).
 
 ## 5. Exportar
 
@@ -158,7 +174,6 @@ build_exe.bat       Genera el ejecutable
 finmath/            Lógica financiera (sin dependencia de la web)
 web/                Interfaz: plantilla, CSS y JavaScript
 exports/            Exportación a Excel y PDF
-config/             Catálogo de tasas editable
 tests/              Pruebas matemáticas
 docs/               Esta documentación
 ```
@@ -168,7 +183,6 @@ docs/               Esta documentación
 | Problema | Causa y solución |
 |---|---|
 | Las fórmulas se ven como código o no hay gráficos | No hay internet; KaTeX y Chart.js se cargan en línea. |
-| "La sigla MT está sin configurar" | Defina su significado en el Catálogo de tasas. |
 | La página no abre al ejecutar el .exe | Abra manualmente la dirección que muestra la ventana negra (normalmente http://127.0.0.1:5000). |
 | El antivirus bloquea el .exe | Es un falso positivo habitual de los ejecutables creados con PyInstaller. Permítalo o ejecute desde el código. |
 | "Operación matemática inválida" | Revise tasa, plazo y valores; por ejemplo, una tasa de −100 % o un plazo en cero. |

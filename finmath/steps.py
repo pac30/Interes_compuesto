@@ -47,5 +47,10 @@ class Procedure:
         """rows: [variable, descripción, valor]"""
         self._cur["items"].append({"kind": "table", "rows": rows, "academic": academic})
 
+    def where(self, pairs):
+        """Descripción de cada variable de una fórmula: [(símbolo, significado), ...]. Se ve en ambas vistas."""
+        body = "; ".join(f"${sym}$ = {desc}" for sym, desc in pairs)
+        self._cur["items"].append({"kind": "text", "content": "Donde: " + body + ".", "academic": False})
+
     def to_list(self):
         return self.steps

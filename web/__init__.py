@@ -25,19 +25,11 @@ def create_app():
                         "message": "Operación matemática inválida con los datos ingresados (revise tasas, plazos "
                                    "y valores).", "needs_info": False}), 422
 
-    # ---- catálogo de tasas (configurable)
+    # ---- catálogo de tasas (fijo, solo lectura)
     @app.get("/api/catalog")
     def get_catalog():
         return jsonify([s.to_dict() for s in rates.load_catalog().values()])
 
-    @app.post("/api/catalog")
-    def set_catalog():
-        specs = rates.save_catalog((request.get_json(silent=True) or {}).get("items"))
-        return jsonify([s.to_dict() for s in specs])
-
-    @app.post("/api/catalog/reset")
-    def reset_catalog():
-        return jsonify([s.to_dict() for s in rates.reset_catalog()])
 
     # ---- exportación (recalcula en el servidor con los mismos datos)
     @app.post("/api/export/<fmt>")

@@ -21,7 +21,7 @@
       <button class="nav-item" data-module="rates"><span>%</span> Tasas de interés</button>
       <button class="nav-item" data-module="focal"><span>⌖</span> Fechas focales</button>
       <button class="nav-item" data-module="compare"><span>⇄</span> Comparar simulaciones</button>
-      <button class="nav-item" data-module="catalog"><span>⚙</span> Catálogo de tasas</button>
+      <button class="nav-item" data-module="catalog"><span>⚙</span> Guía de tasas</button>
     </nav>
     <p class="side-note">Herramienta educativa. Todas las tasas y condiciones son configurables; los valores iniciales son solo ejemplos didácticos.</p>
   </aside>
@@ -68,13 +68,7 @@
                 <select name="annuity_type">
                   <option value="vencida">Vencida (pagos al final)</option>
                   <option value="anticipada">Anticipada (pagos al inicio)</option>
-                  <option value="diferida">Diferida (con periodo de gracia)</option>
-                  <option value="perpetua">Perpetua</option>
                 </select></label>
-              <label class="field" data-when="annuity_type=diferida"><span>Periodos diferidos (gracia)</span>
-                <input type="number" name="defer_periods" min="1" step="1" value="3"></label>
-              <label class="field" data-when="annuity_type=diferida|perpetua"><span>Base de los pagos</span>
-                <select name="deferred_base"><option value="vencida">Vencidos</option><option value="anticipada">Anticipados</option></select></label>
             </fieldset>
 
             <fieldset><legend>Persona</legend>
@@ -106,19 +100,19 @@
                 <select name="pay_period_months">
                   <option value="1">Mensual</option><option value="2">Bimestral</option><option value="3">Trimestral</option>
                   <option value="6">Semestral</option><option value="12">Anual</option></select></label>
-              <div class="row2" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota;annuity_type=vencida|anticipada|diferida">
+              <div class="row2" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota">
                 <label class="field"><span>Plazo</span><input type="number" name="term_value" min="0" step="any" value="24"></label>
                 <label class="field"><span>Unidad</span><select name="term_unit"><option value="months">Meses</option><option value="years">Años</option></select></label>
               </div>
-              <label class="field" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota;annuity_type=vencida|anticipada|diferida"><span>…o número de cuotas (opcional)</span>
+              <label class="field" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota"><span>…o número de cuotas (opcional)</span>
                 <input type="number" name="n_cuotas" min="1" step="1" placeholder="se deduce del plazo"></label>
               <div class="row2">
                 <label class="field"><span>Fecha inicial</span><input type="date" name="start_date" class="today"></label>
-                <label class="field" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota;annuity_type=vencida|anticipada|diferida"><span>Fecha final (opcional)</span><input type="date" name="end_date"></label>
+                <label class="field" data-when="mode=cuota_pv|pv_cuota|cuota_fv|fv_cuota"><span>Fecha final (opcional)</span><input type="date" name="end_date"></label>
               </div>
             </fieldset>
 
-            <fieldset data-when="mode=cuota_pv|pv_cuota|n_pv_cuota;annuity_type=vencida|anticipada|diferida"><legend>Costos adicionales</legend>
+            <fieldset data-when="mode=cuota_pv|pv_cuota|n_pv_cuota"><legend>Costos adicionales</legend>
               <label class="field"><span>Seguro</span>
                 <select name="insurance_type">
                   <option value="none">Sin seguro</option>
@@ -133,7 +127,7 @@
               <button type="button" class="btn ghost" data-action="example">Restablecer ejemplo</button>
             </div>
           </form>
-          <div class="results-host" data-module="annuity" data-table-tab="Plan de pagos / amortización"></div>
+          <div class="results-host" data-module="annuity" data-table-tab="Plan de pagos"></div>
         </div>
       </section>
 
@@ -267,19 +261,19 @@
       </section>
 
       <!-- ============ Catálogo de tasas ============ -->
-      <section class="module" id="mod-catalog" data-title="Catálogo de tasas">
+      <section class="module" id="mod-catalog" data-title="Guía de tasas">
         <div class="panel wide">
-          <h2>Catálogo configurable de tasas</h2>
-          <p class="hint">Las siglas cambian según la universidad o el material. Defina aquí qué significa cada una: si es <b>efectiva</b> o <b>nominal</b>, su periodo (para nominales, el periodo de capitalización; siempre anual) y si es <b>anticipada</b>. Las marcadas «por configurar» no se pueden usar hasta definirlas.</p>
+          <h2>Guía de tasas</h2>
+          <p class="hint"><b>i</b> = tasa efectiva (o periódica) · <b>j</b> = tasa nominal (capitalizable, convertible o vencida) · <b>m</b> = número de periodos por año · <b>i<sub>a</sub></b> = tasa efectiva anticipada.</p>
+          <ul class="hint">
+            <li>Efectiva ↔ nominal del <b>mismo periodo</b>: <b>i = j / m</b> y <b>j = i · m</b>.</li>
+            <li>Cualquier otro cambio de periodo usa <b>tasas equivalentes</b>: (1 + i₁)<sup>n₁</sup> = (1 + i₂)<sup>n₂</sup>, con n = cuántas veces cabe el periodo en un año.</li>
+            <li>Anticipadas: <b>i = i<sub>a</sub> / (1 − i<sub>a</sub>)</b> y <b>i<sub>a</sub> = i / (1 + i)</b>. Solo se pasa de efectiva a anticipada; una nominal nunca se convierte directo a anticipada: primero i → i<sub>a</sub> y luego j<sub>a</sub> = i<sub>a</sub> · m.</li>
+            <li>En fechas focales y ecuaciones de valor <b>nunca</b> se usa la nominal: siempre se convierte a efectiva.</li>
+          </ul>
           <div class="table-wrap"><table class="data" id="catalogTable">
-            <thead><tr><th>Sigla</th><th>Nombre</th><th>Tipo</th><th>Periodo (meses)</th><th>Anticipada</th><th>Por configurar</th><th>Significado</th><th></th></tr></thead>
+            <thead><tr><th class="left">Sigla</th><th class="left">Nombre completo</th><th>Tipo</th><th>Periodo</th><th>m</th><th>Vencida / anticipada</th></tr></thead>
             <tbody></tbody></table></div>
-          <div class="form-actions">
-            <button class="btn ghost" id="catAdd">+ Agregar sigla</button>
-            <button class="btn primary" id="catSave">Guardar catálogo</button>
-            <button class="btn ghost" id="catReset">Restaurar valores predeterminados</button>
-          </div>
-          <div class="msg" id="catMsg"></div>
         </div>
       </section>
     </main>

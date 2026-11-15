@@ -1,4 +1,4 @@
-"""Tablas de amortización (créditos) y de acumulación (ahorros), sin redondear valores intermedios."""
+"""Plan de pagos (créditos) y tabla de acumulación (ahorros), sin redondear valores intermedios."""
 from decimal import Decimal
 
 from .dates import add_months
@@ -28,22 +28,14 @@ class Insurance:
         return ZERO
 
 
-def loan_schedule(pv, i, n, cuota, due=False, defer=0, start=None, p=1, insurance=None, adjust_last=False):
+def loan_schedule(pv, i, n, cuota, due=False, start=None, p=1, insurance=None, adjust_last=False):
     """Cronograma de un crédito.
 
-    - defer: periodos de gracia con intereses capitalizados (periodo muerto).
     - due:   cuotas anticipadas (la primera cuota se paga al inicio del primer periodo de pago).
     - adjust_last: la última cuota paga exactamente el saldo (cuando n no es entero).
     """
     ins = insurance or Insurance()
     rows, bal, k = [], D(pv), 0
-    for t in range(1, defer + 1):
-        k += 1
-        interest = bal * i
-        rows.append({"n": k, "date": add_months(start, t * p) if start else None, "phase": "gracia",
-                     "opening": bal, "interest": interest, "capital": -interest, "payment": ZERO,
-                     "insurance": ZERO, "total": ZERO, "closing": bal + interest})
-        bal += interest
     for j in range(1, n + 1):
         k += 1
         opening = bal
@@ -52,7 +44,7 @@ def loan_schedule(pv, i, n, cuota, due=False, defer=0, start=None, p=1, insuranc
         pay = (opening + interest) if (adjust_last and last) else D(cuota)
         capital = pay - interest
         closing = _clean(opening - capital)
-        offset = (defer + j - 1) if due else (defer + j)
+        offset = (j - 1) if due else j
         seg = ins.amount(opening)
         rows.append({"n": k, "date": add_months(start, offset * p) if start else None, "phase": "pago",
                      "opening": opening, "interest": interest, "capital": capital, "payment": pay,

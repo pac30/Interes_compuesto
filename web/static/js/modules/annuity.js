@@ -3,8 +3,8 @@ import { setupModule } from "./base.js";
 
 const EXAMPLE = {
   mode: "cuota_pv", annuity_type: "vencida", pv: "10000000", fv: "10000000", cuota: "500000", rate_value: "18",
-  pay_period_months: "1", term_value: "24", term_unit: "months", n_cuotas: "", end_date: "", defer_periods: "3",
-  deferred_base: "vencida", insurance_type: "none", insurance_value: "0.05", birth_date: "", age: "",
+  pay_period_months: "1", term_value: "24", term_unit: "months", n_cuotas: "", end_date: "",
+  insurance_type: "none", insurance_value: "0.05", birth_date: "", age: "",
 };
 
 export function initAnnuity() {

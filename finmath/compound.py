@@ -130,16 +130,24 @@ def run(data):
     if sc == "A":
         proc.text("El capital crece con interés **compuesto**: los intereses de cada periodo se suman al capital.")
         proc.math("FV = PV\\,(1+i)^{n}", result=True)
+        proc.where([("FV", "valor futuro"), ("PV", "valor presente (capital inicial)"),
+                    ("i", "tasa **efectiva** del periodo"), ("n", "número de periodos")])
         proc.text("Es la adecuada porque hay un único pago inicial y una única cantidad final, sin cuotas intermedias.")
     elif sc == "B":
         proc.text("Se despeja el valor presente de la fórmula del valor futuro (descuento compuesto).")
         proc.math("PV = \\dfrac{FV}{(1+i)^{n}} = FV\\,(1+i)^{-n}", result=True)
+        proc.where([("FV", "valor futuro"), ("PV", "valor presente (capital inicial)"),
+                    ("i", "tasa **efectiva** del periodo"), ("n", "número de periodos")])
     elif sc == "C":
         proc.text("Se despeja la tasa de $FV = PV(1+i)^n$ elevando ambos lados a $1/n$.")
         proc.math("i = \\left(\\dfrac{FV}{PV}\\right)^{1/n}-1", result=True)
+        proc.where([("FV", "valor futuro"), ("PV", "valor presente (capital inicial)"),
+                    ("i", "tasa **efectiva** del periodo"), ("n", "número de periodos")])
     else:
         proc.text("Se despeja $n$ de $FV = PV(1+i)^n$ aplicando logaritmo natural.")
         proc.math("n = \\dfrac{\\ln(FV/PV)}{\\ln(1+i)}", result=True)
+        proc.where([("FV", "valor futuro"), ("PV", "valor presente (capital inicial)"),
+                    ("i", "tasa **efectiva** del periodo"), ("n", "número de periodos")])
 
     proc.step(5, "Sustitución de valores")
     if sc == "A":

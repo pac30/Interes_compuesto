@@ -16,11 +16,6 @@ def close(a, b, tol="1e-9"):
     return abs(D(a) - D(b)) <= D(tol)
 
 
-@pytest.fixture(autouse=True)
-def _default_catalog(tmp_path, monkeypatch):
-    monkeypatch.setattr(R, "CATALOG_PATH", str(tmp_path / "cat.json"))
-
-
 # ---------------- tasas ----------------
 def test_nominal_to_ea_monthly():
     spec = R.load_catalog()["NM"]
@@ -48,27 +43,8 @@ def test_all_conversions_roundtrip():
     cat = R.load_catalog()
     ea = D("0.2345")
     for c, s in cat.items():
-        if s.pending:
-            continue
         v = R.express(s, ea)
         assert close(R.ea_from(s, v * 100), ea, "1e-30"), c
-
-
-def test_pending_rate_requires_config():
-    with pytest.raises(NeedsInfo):
-        R.get_spec(R.load_catalog(), "MT")
-
-
-def test_catalog_configurable_and_reset():
-    items = R.default_catalog_list()
-    for it in items:
-        if it["code"] == "MT":
-            it.update(pending=False, months=3, anticipated=False, name="Mes-Trimestre")
-    R.save_catalog(items)
-    assert R.get_spec(R.load_catalog(), "MT").months == 3
-    items.append({"code": "ZZ", "name": "x", "kind": "nominal", "months": 5})
-    with pytest.raises(ValidationError):
-        R.save_catalog(items)
 
 
 def test_rates_module_runs():
@@ -141,12 +117,6 @@ def test_due_equals_ordinary_times_one_plus_i():
     assert close(d, o / (1 + i), "1e-20")
 
 
-def test_deferred():
-    i = D("0.02")
-    c = A.cuota_from_pv(D(1000), i, 10, False, 3)
-    assert close(A.pv_from_cuota(c, i, 10, False, 3), "1000", "1e-25")
-
-
 def test_savings_fv():
     i = D("0.01")
     c = A.cuota_from_fv(D(10000000), i, 36)
@@ -159,12 +129,6 @@ def test_n_from_pv_cuota():
     assert close(A.n_from_pv_cuota(D(1000000), c, i), "18", "1e-25")
     with pytest.raises(ValidationError):
         A.n_from_pv_cuota(D(1000000), D(5000), i)
-
-
-def test_perpetuity():
-    assert close(A.perpetuity_pv(D(100), D("0.05")), "2000")
-    assert close(A.perpetuity_pv(D(100), D("0.05"), True), "2100")
-    assert close(A.perpetuity_cuota(D(2000), D("0.05")), "100")
 
 
 def run_ann(**kw):
@@ -184,14 +148,6 @@ def test_schedule_balances_to_zero_and_sums():
         for r in sch:
             assert close(r["opening"] - r["capital"], r["closing"], "1e-20")
     assert run_ann(annuity_type="anticipada")["schedule"][0]["interest"] == 0
-
-
-def test_deferred_schedule():
-    out = run_ann(annuity_type="diferida", defer_periods="3", term_value="12")
-    sch = out["schedule"]
-    assert len(sch) == 15 and sch[2]["phase"] == "gracia"
-    assert sch[-1]["closing"] == 0
-    assert close(out["summary"]["total_interest"], sum(r["interest"] for r in sch), "1e-15")
 
 
 def test_bimonthly_nominal_rate_period_compat():
@@ -248,15 +204,6 @@ def test_savings_schedule():
     assert close(sch[-1]["closing"], "5000000", "1e-15")
 
 
-def test_perpetuity_module():
-    out = A.run({"mode": "pv_cuota", "annuity_type": "perpetua", "rate_code": "EM", "rate_value": "1",
-                 "cuota": "100", "pay_period_months": "1"})
-    assert close(out["summary"]["pv"], "10000")
-    with pytest.raises(ValidationError):
-        A.run({"mode": "cuota_fv", "annuity_type": "perpetua", "rate_code": "EM", "rate_value": "1",
-               "fv": "100", "pay_period_months": "1"})
-
-
 def test_age_from_birth_date():
     out = run_ann(birth_date="2000-06-01", start_date="2025-01-15")
     assert out["summary"]["age"] == 24
@@ -309,3 +256,50 @@ def test_compare_12_24_36():
     assert rows[0]["cuota"] > rows[1]["cuota"] > rows[2]["cuota"]
     assert rows[0]["total_interest"] < rows[1]["total_interest"] < rows[2]["total_interest"]
     assert rows[0]["best"]
+
+
+# ---------------- reglas de tasas (nomenclatura del curso) ----------------
+def test_catalog_has_all_periods_and_no_pending():
+    cat = R.load_catalog()
+    assert {s.months for s in cat.values() if s.kind == "effective"} == {1, 2, 3, 4, 6, 12}
+    assert {s.months for s in cat.values() if s.kind == "nominal"} >= {1, 2, 3, 4, 6, 12}
+    assert "MT" not in cat
+    with pytest.raises(ValidationError):
+        R.get_spec(cat, "XX")
+
+
+def test_nominal_same_period_is_j_over_m():
+    cat = R.load_catalog()
+    # 12 % nominal capitalizable mensual -> efectiva mensual 1 % (i = j/m) ; y de vuelta j = i·m
+    out = R.resolve("12", cat["NM"], 1)
+    assert close(out["i_target"], "0.01", "1e-30")
+    assert close(R.express(cat["NM"], R.ea_of(D("0.01"), 1)) , "0.12", "1e-30")
+
+
+def test_different_period_uses_equivalent_rates():
+    cat = R.load_catalog()
+    # (1+i_m)^12 = (1+i_t)^4 ;  i_m = 1 %  ->  i_t = 1.01^3 - 1
+    out = R.resolve("1", cat["EM"], 3)
+    assert close(out["i_target"], D("1.01") ** 3 - 1, "1e-30")
+
+
+def test_nominal_anticipated_goes_through_effective_anticipated():
+    cat = R.load_catalog()
+    ea = R.ea_from(cat["EM"], 1)           # i = 1 % mensual
+    i = D("0.01")
+    ia = i / (1 + i)                         # ia = i/(1+i)
+    assert close(R.express(cat["MA"], ea), ia * 12, "1e-30")   # j_a = ia·m
+    assert close(ia / (1 - ia), i, "1e-30")                    # i = ia/(1-ia)
+
+
+def test_procedure_describes_variables():
+    out = C.run({"scenario": "A", "pv": "1000", "rate_value": "12", "rate_code": "EA", "term_value": "12",
+                 "term_unit": "months", "start_date": "2025-01-01"})
+    step4 = next(st for st in out["procedure"] if st["n"] == 4)
+    assert any("Donde:" in it.get("content", "") and not it["academic"] for it in step4["items"])
+
+
+def test_diferida_y_perpetua_ya_no_existen():
+    for t in ("diferida", "perpetua"):
+        with pytest.raises(ValidationError):
+            run_ann(annuity_type=t)

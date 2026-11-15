@@ -224,7 +224,7 @@ export function renderExtras(el, module, result, handlers) {
     let h = '<h3 class="sub-title">Equivalencias en todas las modalidades</h3><div class="table-wrap"><table class="data"><thead><tr><th class="left">Sigla</th><th class="left">Nombre completo</th><th class="left">Significado</th><th>Tasa equivalente</th></tr></thead><tbody>';
     result.rates.forEach((r) => {
       h += `<tr class="${r.same ? "best" : ""}"><td class="left"><b>${esc(r.code)}</b></td><td class="left">${esc(r.name)}</td><td class="left">${esc(r.description)}</td><td>` +
-        (r.pending ? "por configurar" : `<b>${pct(r.value, 8)}</b>` + (r.same ? "" : `<details class="formula"><summary>fórmula</summary><div class="math">${r.latex.map((l) => tex(l, true)).join("")}</div></details>`)) + "</td></tr>";
+        (`<b>${pct(r.value, 8)}</b>` + (r.same ? "" : `<details class="formula"><summary>fórmula</summary><div class="math">${r.latex.map((l) => tex(l, true)).join("")}</div></details>`)) + "</td></tr>";
     });
     el.innerHTML = h + "</tbody></table></div>";
   }

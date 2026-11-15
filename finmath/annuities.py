@@ -1,4 +1,4 @@
-"""Anualidades y cuotas: vencidas, anticipadas, diferidas y perpetuas; créditos y ahorros."""
+"""Anualidades y cuotas: vencidas y anticipadas; créditos (plan de pagos) y ahorros."""
 import math
 from datetime import date
 
@@ -16,13 +16,10 @@ MODES = {
     "fv_cuota": "Valor futuro acumulado con mis aportes",
     "n_pv_cuota": "Número de cuotas (dadas la deuda y la cuota)",
 }
-TYPES = {"vencida": "Anualidad vencida", "anticipada": "Anualidad anticipada",
-         "diferida": "Anualidad diferida", "perpetua": "Anualidad perpetua"}
+TYPES = {"vencida": "Anualidad vencida", "anticipada": "Anualidad anticipada"}
 PAY_PERIODS = {1: "Mensual", 2: "Bimestral", 3: "Trimestral", 6: "Semestral", 12: "Anual"}
 INSURANCE = ("none", "pct_balance", "pct_initial", "fixed")
 
-
-# ------------------------- fórmulas puras -------------------------
 
 def factor_pv(i, n, due=False):
     """a_n (vencida) o ä_n (anticipada)."""
@@ -37,12 +34,12 @@ def factor_fv(i, n, due=False):
     return s * (1 + i) if due else s
 
 
-def cuota_from_pv(pv, i, n, due=False, defer=0):
-    return pv * dpow(1 + i, defer) / factor_pv(i, n, due)
+def cuota_from_pv(pv, i, n, due=False):
+    return pv / factor_pv(i, n, due)
 
 
-def pv_from_cuota(cuota, i, n, due=False, defer=0):
-    return cuota * factor_pv(i, n, due) * dpow(1 + i, -defer)
+def pv_from_cuota(cuota, i, n, due=False):
+    return cuota * factor_pv(i, n, due)
 
 
 def cuota_from_fv(fv, i, n, due=False):
@@ -53,36 +50,24 @@ def fv_from_cuota(cuota, i, n, due=False):
     return cuota * factor_fv(i, n, due)
 
 
-def n_from_pv_cuota(pv, cuota, i, due=False, defer=0):
-    pv0 = pv * dpow(1 + i, defer)
+def n_from_pv_cuota(pv, cuota, i, due=False):
     if i == 0:
-        return pv0 / cuota
-    base = pv0 * i / (cuota * (1 + i) if due else cuota)
+        return pv / cuota
+    base = pv * i / (cuota * (1 + i) if due else cuota)
     if base >= 1:
         raise ValidationError({"cuota": "La cuota no alcanza a cubrir los intereses del primer periodo: "
                                         "la deuda nunca se pagaría. Aumente la cuota."})
     return -dln(1 - base) / dln(1 + i)
 
 
-def perpetuity_pv(cuota, i, due=False):
-    return cuota / i * ((1 + i) if due else 1)
-
-
-def perpetuity_cuota(pv, i, due=False):
-    return pv * i / ((1 + i) if due else 1)
-
-
 # ------------------------- helpers de pasos -------------------------
 
-def _sym_pv(due, k):
-    s = "PV = A\\,\\dfrac{1-(1+i)^{-n}}{i}"
-    return s + ("\\,(1+i)" if due else "") + ("\\,(1+i)^{-k}" if k else "")
+def _sym_pv(due):
+    return "PV = A\,\dfrac{1-(1+i)^{-n}}{i}" + ("\,(1+i)" if due else "")
 
 
-def _num_pv(A, i, n, due, k):
-    s = f"PV = {A}\\,\\dfrac{{1-(1+{N(i, 12)})^{{-{n}}}}}{{{N(i, 12)}}}"
-    return s + (f"\\,(1+{N(i, 12)})" if due else "") + (f"\\,(1+{N(i, 12)})^{{-{k}}}" if k else "")
-
+def _num_pv(A, i, n, due):
+    return f"PV = {A}\,\dfrac{{1-(1+{N(i, 12)})^{{-{n}}}}}{{{N(i, 12)}}}" + (f"\,(1+{N(i, 12)})" if due else "")
 
 def _develop_pv_factor(proc, i, n, due):
     if i == 0:
@@ -128,13 +113,7 @@ def run(data):
     atype = rd.choice("annuity_type", "Tipo de anualidad", list(TYPES), "vencida")
     rd.done()
     savings = mode in ("cuota_fv", "fv_cuota")
-    perpetual = atype == "perpetua"
-    if perpetual and mode not in ("cuota_pv", "pv_cuota"):
-        raise ValidationError({"annuity_type": "La anualidad perpetua solo permite calcular la cuota (dado el "
-                                               "valor presente) o el valor presente (dada la cuota)."})
-    if savings and atype == "diferida":
-        raise ValidationError({"annuity_type": "Para metas de ahorro (valor futuro) la diferida no cambia el "
-                                               "resultado: use vencida o anticipada."})
+    due = atype == "anticipada"
     need_pv = mode in ("cuota_pv", "n_pv_cuota")
     need_fv = mode == "cuota_fv"
     need_cuota = mode in ("pv_cuota", "fv_cuota", "n_pv_cuota")
@@ -149,14 +128,6 @@ def run(data):
     p = rd.integer("pay_period_months", "Periodicidad de pago", min=1)
     if p is not None and p not in PAY_PERIODS:
         rd.errors["pay_period_months"] = "Periodicidad no válida (mensual, bimestral, trimestral, semestral o anual)."
-    k = 0
-    base = "vencida"
-    if atype == "diferida":
-        k = rd.integer("defer_periods", "Periodos diferidos", min=1, max=600) or 0
-        base = rd.choice("deferred_base", "Base de la diferida", ["vencida", "anticipada"], "vencida")
-    elif perpetual:
-        base = rd.choice("deferred_base", "Base de la perpetua", ["vencida", "anticipada"], "vencida")
-    due = atype == "anticipada" or (atype in ("diferida", "perpetua") and base == "anticipada")
     start = rd.date("start_date", "Fecha inicial", required=False)
     end = rd.date("end_date", "Fecha final", required=False)
     birth = rd.date("birth_date", "Fecha de nacimiento", required=False)
@@ -167,8 +138,6 @@ def run(data):
 
     warnings = []
     spec = R.get_spec(cat, code)
-    if rate_val == 0 and perpetual:
-        raise ValidationError({"rate_value": "Una perpetuidad requiere tasa mayor que 0."})
     if not start:
         start = date.today()
         warnings.append("No indicó fecha inicial: se usó la fecha de hoy.")
@@ -190,12 +159,12 @@ def run(data):
         rd.done()
         unit = rd.choice("term_unit", "Unidad del plazo", ["months", "years"], "months")
         term_months = t * (12 if unit == "years" else 1)
-    elif start and end and not perpetual and mode != "n_pv_cuota":
+    elif start and end and mode != "n_pv_cuota":
         if end <= start:
             raise ValidationError({"end_date": "La fecha final debe ser posterior a la inicial."})
         term_months = months_between(start, end)
         warnings.append("Plazo calculado a partir de las fechas inicial y final.")
-    if mode != "n_pv_cuota" and not perpetual:
+    if mode != "n_pv_cuota":
         n_t = None
         if term_months is not None:
             ratio = term_months / p
@@ -227,10 +196,7 @@ def run(data):
     rows.append([T("p"), f"Periodicidad de pago ({PAY_PERIODS[p]})", f"{p} mes(es)"])
     if n:
         rows.append([T("n"), "Número de cuotas", str(n)])
-    if k:
-        rows.append([T("k"), "Periodos diferidos (gracia, intereses capitalizados)", str(k)])
-    rows.append([T("tipo"), TYPES[atype] + (" (base " + base + ")" if atype in ("diferida", "perpetua") else ""),
-                 "pagos al inicio" if due else "pagos al final"])
+    rows.append([T("tipo"), TYPES[atype], "pagos al inicio" if due else "pagos al final"])
     if age is not None:
         rows.append([T("edad"), "Edad de la persona", str(age)])
     proc.text(f"Cálculo: **{MODES[mode]}**. Tipo: **{TYPES[atype]}**.")
@@ -239,58 +205,44 @@ def run(data):
     res = R.resolve(rate_val, spec, p, proc)
     i, ea = res["i_target"], res["ea"]
 
-    # ---------- cálculo
+    # ---------- Paso 4: fórmula y significado de cada variable
     cuota = pv_res = fv_res = None
     n_exact = D(n) if n else None
     proc.step(4, "Identificación de la fórmula financiera")
     desc_due = "anticipada (los pagos se hacen al inicio de cada periodo, por eso se multiplica por $(1+i)$)" \
         if due else "vencida (los pagos se hacen al final de cada periodo)"
-    insurance_note = None
-    if perpetual:
-        proc.text(f"Una **perpetuidad** es una serie de pagos iguales que nunca termina; es {desc_due}. Su valor "
-                  f"presente converge a un número finito porque $(1+i)^{{-n}} \\to 0$.")
-        proc.math("PV = \\dfrac{A}{i}" + ("\\,(1+i)" if due else ""), result=True)
-    elif savings:
+    if savings:
         proc.text(f"Se acumulan aportes iguales que ganan interés compuesto; la anualidad es {desc_due}.")
         proc.math("FV = A\\,\\dfrac{(1+i)^{n}-1}{i}" + ("\\,(1+i)" if due else ""), result=True)
+        proc.where([("FV", "valor futuro acumulado al final"), ("A", "cuota o aporte periódico igual"),
+                    ("i", "tasa **efectiva** del periodo de pago (ya convertida en el paso 3)"),
+                    ("n", "número de cuotas")])
         proc.text("Es la adecuada porque se conoce una meta de valor futuro y se paga con cuotas periódicas iguales.")
+        if mode == "cuota_fv":
+            proc.text("Se despeja la cuota $A$:")
+            proc.math("A = \\dfrac{FV}{F}, \\quad F = \\dfrac{(1+i)^{n}-1}{i}" + ("(1+i)" if due else ""))
     else:
-        proc.text(f"Se paga una deuda con cuotas iguales; la anualidad es {desc_due}."
-                  + (f" Hay {k} periodo(s) diferido(s): la deuda crece capitalizando intereses y luego se paga."
-                     if k else ""))
-        proc.math(_sym_pv(due, k), result=True)
+        proc.text(f"Se paga una deuda con cuotas iguales; la anualidad es {desc_due}.")
+        proc.math(_sym_pv(due), result=True)
+        proc.where([("PV", "valor presente: deuda o monto financiado"), ("A", "cuota periódica igual"),
+                    ("i", "tasa **efectiva** del periodo de pago (ya convertida en el paso 3)"),
+                    ("n", "número de cuotas")])
         proc.text("Es la adecuada porque el valor presente de todas las cuotas debe igualar la deuda.")
         if mode == "cuota_pv":
             proc.text("Se despeja la cuota $A$:")
-            proc.math("A = \\dfrac{PV\\,(1+i)^{k}}{F}" + ", \\quad F = \\dfrac{1-(1+i)^{-n}}{i}" +
-                      ("(1+i)" if due else ""))
+            proc.math("A = \\dfrac{PV}{F}" + ", \\quad F = \\dfrac{1-(1+i)^{-n}}{i}" + ("(1+i)" if due else ""))
         if mode == "n_pv_cuota":
             proc.text("Se despeja $n$ con logaritmos:")
-            proc.math("n = -\\dfrac{\\ln\\left(1-\\dfrac{PV' \\, i}{A" + ("(1+i)" if due else "") +
-                      "}\\right)}{\\ln(1+i)}, \\quad PV' = PV(1+i)^k")
+            proc.math("n = -\\dfrac{\\ln\\left(1-\\dfrac{PV \\, i}{A" + ("(1+i)" if due else "") +
+                      "}\\right)}{\\ln(1+i)}")
 
     proc.step(5, "Sustitución de valores")
     proc.step(6, "Desarrollo matemático")
-    ins_extra = ZERO
-    if perpetual:
-        if mode == "cuota_pv":
-            cuota = perpetuity_cuota(pv, i, due)
-            proc.math(f"A = PV\\,i" + ("/(1+i)" if due else "") + f" = {M(pv)} \\times {N(i, 12)}"
-                      + (f" / {N(1 + i, 12)}" if due else "") + f" = {M(cuota)}", result=True)
-            pv_res = pv
-        else:
-            pv_res = perpetuity_pv(cuota_in, i, due)
-            cuota = cuota_in
-            proc.math(f"PV = \\dfrac{{{M(cuota)}}}{{{N(i, 12)}}}" + (f"\\,{N(1 + i, 12)}" if due else "")
-                      + f" = {M(pv_res)}", result=True)
-    elif mode == "cuota_pv":
+    if mode == "cuota_pv":
         F = _develop_pv_factor(proc, i, n, due)
-        h = dpow(1 + i, k)
-        if k:
-            proc.math(f"(1+i)^k = {N(1 + i, 12)}^{{{k}}} = {N(h, 14)}", academic=True)
-        cuota = pv * h / F
+        cuota = pv / F
         pv_res = pv
-        proc.math(f"A = \\dfrac{{{M(pv)} \\times {N(h, 14)}}}{{{N(F, 12)}}} = {M(cuota)}", result=True)
+        proc.math(f"A = \\dfrac{{{M(pv)}}}{{{N(F, 12)}}} = {M(cuota)}", result=True)
     elif mode == "pv_cuota":
         F = _develop_pv_factor(proc, i, n, due)
         A_base = cuota_in
@@ -300,21 +252,19 @@ def run(data):
                 raise ValidationError({"cuota": "La cuota no alcanza ni para cubrir el seguro."})
             proc.text(f"La cuota ingresada incluye el seguro fijo ({M(ins_val * p)} por periodo): la cuota "
                       f"para el crédito es {M(cuota_in)} − {M(ins_val * p)} = {M(A_base)}.")
-        h = dpow(1 + i, -k)
         if ins_kind == "pct_initial":
-            pv_res = cuota_in / (dpow(1 + i, k) / F + ins_val / 100 * p)
+            pv_res = cuota_in / (1 / F + ins_val / 100 * p)
             proc.text("Como el seguro es un porcentaje del monto inicial, se resuelve "
-                      "$PV = \\dfrac{A_{total}}{(1+i)^k/F + s\\,p}$ con $s$ = % mensual.")
-            A_base = pv_res * dpow(1 + i, k) / F
+                      "$PV = \\dfrac{A_{total}}{1/F + s\\,p}$ con $s$ = % mensual.")
+            A_base = pv_res / F
         elif ins_kind == "pct_balance":
             raise ValidationError({"insurance_type": "Con seguro sobre saldo la cuota total no es constante; "
                                                      "para calcular el monto financiable elija seguro fijo, "
                                                      "porcentaje del monto inicial o sin seguro."})
         else:
-            pv_res = A_base * F * h
+            pv_res = A_base * F
         cuota = A_base
-        proc.math(f"PV = {M(A_base)} \\times {N(F, 12)}" + (f" \\times {N(h, 14)}" if k else "") +
-                  f" = {M(pv_res)}", result=True)
+        proc.math(f"PV = {M(A_base)} \\times {N(F, 12)} = {M(pv_res)}", result=True)
     elif mode == "cuota_fv":
         F = _develop_fv_factor(proc, i, n, due)
         cuota = fv / F
@@ -326,15 +276,12 @@ def run(data):
         fv_res = cuota * F
         proc.math(f"FV = {M(cuota)} \\times {N(F, 12)} = {M(fv_res)}", result=True)
     else:  # n_pv_cuota
-        n_exact = n_from_pv_cuota(pv, cuota_in, i, due, k)
+        n_exact = n_from_pv_cuota(pv, cuota_in, i, due)
         cuota = cuota_in
         pv_res = pv
-        h = dpow(1 + i, k)
         if i > 0:
-            pv0 = pv * h
-            arg = pv0 * i / (cuota * (1 + i) if due else cuota)
-            proc.math(f"PV' = {M(pv)} \\times {N(h, 14)} = {M(pv0)}", academic=True)
-            proc.math(f"1-\\dfrac{{PV'\\,i}}{{A}}" + ("(1+i)" if due else "") + f" = 1-{N(arg, 14)} = {N(1 - arg, 14)}",
+            arg = pv * i / (cuota * (1 + i) if due else cuota)
+            proc.math(f"1-\\dfrac{{PV\\,i}}{{A}}" + ("(1+i)" if due else "") + f" = 1-{N(arg, 14)} = {N(1 - arg, 14)}",
                       academic=True)
             proc.math(f"\\ln({N(1 - arg, 14)}) = {N(dln(1 - arg), 14)}; \\quad \\ln(1+i) = {N(dln(1 + i), 14)}",
                       academic=True)
@@ -344,64 +291,45 @@ def run(data):
     # sustitución (paso 5) se rellena ahora que se conocen los valores
     step5 = next(s for s in proc.steps if s["n"] == 5)
     sub = []
-    if perpetual:
-        sub.append("PV = \\dfrac{A}{i}" + ("(1+i)" if due else "") + f" \\to i = {N(i, 12)}")
-    elif savings:
+    if savings:
         sub.append(f"FV = A\\,\\dfrac{{(1+{N(i, 12)})^{{{n}}}-1}}{{{N(i, 12)}}}" + (f"\\,(1+{N(i, 12)})" if due else ""))
     elif mode == "n_pv_cuota":
-        sub.append(f"n = -\\dfrac{{\\ln\\left(1-\\dfrac{{{M(pv)}\\,(1+{N(i, 12)})^{{{k}}}\\,{N(i, 12)}}}{{{M(cuota_in)}}}"
+        sub.append(f"n = -\\dfrac{{\\ln\\left(1-\\dfrac{{{M(pv)}\\,{N(i, 12)}}}{{{M(cuota_in)}}}"
                    f"\\right)}}{{\\ln(1+{N(i, 12)})}}")
+    elif mode == "cuota_pv":
+        fx = f"\\dfrac{{1-(1+{N(i, 12)})^{{-{n}}}}}{{{N(i, 12)}}}" + (f"\\,(1+{N(i, 12)})" if due else "")
+        sub.append(f"A = \\dfrac{{{M(pv)}}}{{{fx}}}")
     else:
-        if mode == "cuota_pv":
-            fx = f"\\dfrac{{1-(1+{N(i, 12)})^{{-{n}}}}}{{{N(i, 12)}}}" + (f"\\,(1+{N(i, 12)})" if due else "")
-            sub.append(f"A = \\dfrac{{{M(pv)}\\,(1+{N(i, 12)})^{{{k}}}}}{{{fx}}}")
-        else:
-            sub.append(_num_pv(M(cuota), i, n, due, k))
+        sub.append(_num_pv(M(cuota), i, n, due))
     step5["items"].append({"kind": "text", "content": "Se reemplazan las variables por los datos reales "
                                                       "(con la tasa periódica ya convertida):", "academic": True})
     for s in sub:
         step5["items"].append({"kind": "math", "content": s, "academic": False, "result": False})
 
-    # ---------- cronograma y totales
-    schedule, ins_obj = None, None
-    total_cuotas = total_ins = total_interest = total_paid = None
-    end_date = None
-    if not perpetual:
-        if savings:
-            schedule = AM.savings_schedule(i, n, cuota, due, start, p)
-            total_cuotas = cuota * n
-            total_interest = (fv_res or fv) - total_cuotas
-            total_ins = ZERO
-            total_paid = total_cuotas
-            end_date = add_months(start, n * p)
-        else:
-            ins_obj = AM.Insurance(ins_kind, ins_val, pv_res, p)
-            adjust = mode == "n_pv_cuota" and abs(n_exact - n) > D("1e-12")
-            schedule = AM.loan_schedule(pv_res, i, n, cuota, due, k, start, p, ins_obj, adjust)
-            pays = [r for r in schedule if r["phase"] == "pago"]
-            total_cuotas = sum((r["payment"] for r in pays), ZERO)
-            total_ins = sum((r["insurance"] for r in pays), ZERO)
-            total_interest = total_cuotas - pv_res
-            total_paid = total_cuotas + total_ins
-            end_date = add_months(start, (k + n) * p)
-            if ins_kind != "none" and k:
-                warnings.append("El seguro no se cobra durante los periodos diferidos (supuesto del simulador).")
-            if ins_kind != "none":
-                warnings.append("Seguro: el valor ingresado es mensual; en periodos de varios meses se multiplica "
-                                "por el número de meses del periodo.")
-        if k:
-            warnings.append("Anualidad diferida: durante los periodos de gracia los intereses se capitalizan "
-                            "(el plazo ingresado corresponde a los pagos, sin contar la gracia).")
+    # ---------- plan de pagos y totales
+    schedule = None
+    if savings:
+        schedule = AM.savings_schedule(i, n, cuota, due, start, p)
+        total_cuotas = cuota * n
+        total_interest = (fv_res or fv) - total_cuotas
+        total_ins = ZERO
+        total_paid = total_cuotas
+    else:
+        ins_obj = AM.Insurance(ins_kind, ins_val, pv_res, p)
+        adjust = mode == "n_pv_cuota" and abs(n_exact - n) > D("1e-12")
+        schedule = AM.loan_schedule(pv_res, i, n, cuota, due, start, p, ins_obj, adjust)
+        total_cuotas = sum((r["payment"] for r in schedule), ZERO)
+        total_ins = sum((r["insurance"] for r in schedule), ZERO)
+        total_interest = total_cuotas - pv_res
+        total_paid = total_cuotas + total_ins
+        if ins_kind != "none":
+            warnings.append("Seguro: el valor ingresado es mensual; en periodos de varios meses se multiplica "
+                            "por el número de meses del periodo.")
+    end_date = add_months(start, n * p)
 
     # ---------- Paso 7
     proc.step(7, "Resultado final")
-    if perpetual:
-        if mode == "cuota_pv":
-            proc.text(f"Para sostener una perpetuidad con valor presente {M(pv)} se pueden retirar "
-                      f"**{M(cuota)}** cada {p} mes(es) sin consumir el capital.")
-        else:
-            proc.text(f"Una perpetuidad de {M(cuota)} cada {p} mes(es) vale hoy **{M(pv_res)}**.")
-    elif savings:
+    if savings:
         proc.text(f"Aportando **{M(cuota)}** cada {p} mes(es) durante {n} periodos se acumulan **{M(fv_res)}**. "
                   f"Se aportan {M(total_cuotas)} y los intereses ganados son {M(total_interest)}.")
         proc.math(f"I = FV - nA = {M(fv_res)} - {n}\\times{M(cuota)} = {M(total_interest)}", result=True)
@@ -417,62 +345,53 @@ def run(data):
                   f"{M(total_interest)}", result=True)
         if ins_kind != "none":
             proc.text(f"Seguros pagados: {M(total_ins)}; total a pagar con seguros: {M(total_paid)}.")
-        proc.text("La tabla de amortización muestra cómo cada cuota se divide en interés (sobre el saldo) y abono a "
-                  "capital.")
+        proc.text("El plan de pagos muestra cómo cada cuota se divide en interés (sobre el saldo) y abono a capital.")
 
     # ---------- gráficos
-    chart = None
-    if perpetual:
-        chart = {"kind": "line", "x_label": "Periodos", "labels": [str(t) for t in range(0, 25)],
-                 "series": [{"name": "Capital (no se amortiza)", "values": [pv_res] * 25}]}
-    else:
-        stride = max(1, len(schedule) // 400)
-        init = pv_res if not savings else ZERO
-        labels, vals = ["0"], [init]
-        cap, intr, lab2 = [], [], []
-        for idx, r in enumerate(schedule):
-            if idx % stride == 0 or idx == len(schedule) - 1:
-                labels.append(str(r["n"]))
-                vals.append(r["closing"])
-            if idx % stride == 0:
-                lab2.append(str(r["n"]))
-                cap.append(max(r["capital"], ZERO))
-                intr.append(r["interest"])
-        name = "Capital ahorrado" if savings else "Saldo de la deuda"
-        chart = {"kind": "line", "x_label": f"Periodos de {p} mes(es)", "labels": labels,
-                 "series": [{"name": name, "values": vals}],
-                 "stack": {"labels": lab2, "capital": cap, "interest": intr,
-                           "cap_name": "Aporte" if savings else "Abono a capital"}}
+    stride = max(1, len(schedule) // 400)
+    init = pv_res if not savings else ZERO
+    labels, vals = ["0"], [init]
+    cap, intr, lab2 = [], [], []
+    for idx, r in enumerate(schedule):
+        if idx % stride == 0 or idx == len(schedule) - 1:
+            labels.append(str(r["n"]))
+            vals.append(r["closing"])
+        if idx % stride == 0:
+            lab2.append(str(r["n"]))
+            cap.append(max(r["capital"], ZERO))
+            intr.append(r["interest"])
+    name = "Capital ahorrado" if savings else "Saldo de la deuda"
+    chart = {"kind": "line", "x_label": f"Periodos de {p} mes(es)", "labels": labels,
+             "series": [{"name": name, "values": vals}],
+             "stack": {"labels": lab2, "capital": cap, "interest": intr,
+                       "cap_name": "Aporte" if savings else "Abono a capital"}}
 
     # ---------- tarjetas
     per_label = {1: "mensual", 2: "bimestral", 3: "trimestral", 6: "semestral", 12: "anual"}[p]
     cards = [{"key": "ea", "label": "Tasa efectiva anual", "value": ea * 100, "kind": "pct", "step": 3},
              {"key": "ip", "label": f"Tasa periódica utilizada ({p} m)", "value": i * 100, "kind": "pct", "step": 3}]
     first_ins = ZERO
-    if schedule and not savings:
-        first_ins = next(r["insurance"] for r in schedule if r["phase"] == "pago")
+    if not savings:
+        first_ins = schedule[0]["insurance"]
     if pv_res is not None:
         cards.append({"key": "pv", "label": "Capital inicial / monto", "value": pv_res, "kind": "money", "step": 6 if mode == "pv_cuota" else 1})
     if fv_res is not None:
         cards.append({"key": "fv", "label": "Valor futuro", "value": fv_res, "kind": "money", "step": 6})
     cards.append({"key": "cuota", "label": f"Cuota {per_label}", "value": cuota, "kind": "money", "step": 6})
-    if not perpetual and not savings and ins_kind != "none":
+    if not savings and ins_kind != "none":
         cards.append({"key": "seguro", "label": f"Seguro {per_label}" + (" (1.ª cuota)" if ins_kind == "pct_balance" else ""),
                       "value": first_ins, "kind": "money", "step": 7})
         cards.append({"key": "cuota_seguro", "label": f"Cuota {per_label} con seguros",
                       "value": cuota + first_ins, "kind": "money", "step": 7})
-    if not perpetual:
-        cards.append({"key": "n", "label": "Cantidad de cuotas", "value": n_exact if mode == "n_pv_cuota" else n,
-                      "kind": "num" if mode == "n_pv_cuota" else "int", "step": 6 if mode == "n_pv_cuota" else 1})
-        cards.append({"key": "plazo", "label": "Plazo total", "value": (k + n) * p, "kind": "months", "step": 1})
-        cards.append({"key": "interest", "label": "Total de intereses", "value": total_interest, "kind": "money", "step": 7})
-        cards.append({"key": "paid", "label": "Total a pagar" if not savings else "Total aportado",
-                      "value": total_paid, "kind": "money", "step": 7})
-        if not savings:
-            cards.append({"key": "amort", "label": "Capital amortizado", "value": pv_res, "kind": "money", "step": 7})
-        cards.append({"key": "end", "label": "Fecha de finalización", "value": end_date, "kind": "date", "step": 1})
-    else:
-        cards.append({"key": "interest", "label": "Interés por periodo", "value": pv_res * i, "kind": "money", "step": 6})
+    cards.append({"key": "n", "label": "Cantidad de cuotas", "value": n_exact if mode == "n_pv_cuota" else n,
+                  "kind": "num" if mode == "n_pv_cuota" else "int", "step": 6 if mode == "n_pv_cuota" else 1})
+    cards.append({"key": "plazo", "label": "Plazo total", "value": n * p, "kind": "months", "step": 1})
+    cards.append({"key": "interest", "label": "Total de intereses", "value": total_interest, "kind": "money", "step": 7})
+    cards.append({"key": "paid", "label": "Total a pagar" if not savings else "Total aportado",
+                  "value": total_paid, "kind": "money", "step": 7})
+    if not savings:
+        cards.append({"key": "amort", "label": "Capital amortizado", "value": pv_res, "kind": "money", "step": 7})
+    cards.append({"key": "end", "label": "Fecha de finalización", "value": end_date, "kind": "date", "step": 1})
     if age is not None:
         cards.append({"key": "age", "label": "Edad", "value": age, "kind": "int", "step": 1})
 
