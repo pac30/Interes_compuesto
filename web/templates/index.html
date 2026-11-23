@@ -122,6 +122,20 @@
               <label class="field" data-when="insurance_type=pct_balance|pct_initial|fixed"><span>Valor del seguro (% o monto)</span>
                 <input type="number" name="insurance_value" min="0" step="any" value="0.05"></label>
             </fieldset>
+
+            <fieldset data-when="mode=cuota_pv|pv_cuota"><legend>Amortización</legend>
+              <label class="field"><span>¿Cómo desea amortizar?</span>
+                <select name="extra_type">
+                  <option value="none">Normal (cuota fija hasta el final)</option>
+                  <option value="reduce_cuota">Con abono extra: reducir la cuota (mismo plazo)</option>
+                  <option value="reduce_term">Con abono extra: reducir el plazo (misma cuota)</option>
+                </select></label>
+              <div class="row2" data-when="extra_type=reduce_cuota|reduce_term">
+                <label class="field"><span>Valor del abono extra</span><input type="number" name="extra_amount" min="0" step="any" value="2000000"></label>
+                <label class="field"><span>Se paga con la cuota n.º</span><input type="number" name="extra_after" min="1" step="1" value="6"></label>
+              </div>
+              <p class="hint" data-when="extra_type=reduce_cuota|reduce_term">El abono se descuenta del saldo de la deuda. Reducir la <b>cuota</b> deja el mismo número de cuotas pero más pequeñas; reducir el <b>plazo</b> deja la misma cuota pero termina antes. Ambos ahorran intereses.</p>
+            </fieldset>
             <div class="form-actions">
               <button type="submit" class="btn primary">Simular</button>
               <button type="button" class="btn ghost" data-action="example">Restablecer ejemplo</button>

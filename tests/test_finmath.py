@@ -303,3 +303,75 @@ def test_diferida_y_perpetua_ya_no_existen():
     for t in ("diferida", "perpetua"):
         with pytest.raises(ValidationError):
             run_ann(annuity_type=t)
+
+
+# ---------------- tasas anticipadas (efectivas y nominales) ----------------
+def test_effective_anticipated_all_periods_roundtrip():
+    cat = R.load_catalog()
+    for code in ("EAA", "ESA", "EVA", "ETA", "EBA", "EMA"):
+        s = cat[code]
+        assert s.kind == "effective" and s.anticipated
+        ea = D("0.18")
+        ia = R.express(s, ea)
+        i = R.period_rate(ea, s.months)
+        assert close(ia, i / (1 + i), "1e-30"), code           # ia = i/(1+i)
+        assert close(R.ea_from(s, ia * 100), ea, "1e-30"), code  # y de vuelta: i = ia/(1-ia)
+
+
+def test_nominal_anticipated_all_periods_via_effective_anticipated():
+    cat = R.load_catalog()
+    for code in ("NAA", "NSA", "NVA", "TA", "NBA", "MA"):
+        s = cat[code]
+        assert s.kind == "nominal" and s.anticipated
+        ea = D("0.18")
+        i = R.period_rate(ea, s.months)
+        ia = i / (1 + i)
+        assert close(R.express(s, ea), ia * s.m, "1e-30"), code  # ja = ia·m
+
+
+# ---------------- amortización con abono extra ----------------
+def test_extra_none_is_normal_amortization():
+    a = run_ann(extra_type="none")
+    assert len(a["schedule"]) == 12 and all(r["extra"] is None for r in a["schedule"])
+
+
+def test_extra_reduce_term_keeps_cuota_and_shortens():
+    base = run_ann()
+    out = run_ann(extra_type="reduce_term", extra_amount="200000", extra_after="3")
+    sch = out["schedule"]
+    assert len(sch) < 12 and sch[-1]["closing"] == 0
+    c = base["summary"]["cuota"]
+    assert all(close(r["payment"], c, "1e-20") for r in sch[:-1])
+    assert sch[-1]["payment"] <= c
+    assert sch[2]["extra"] == 200000
+    assert out["summary"]["total_interest"] < base["summary"]["total_interest"]
+    assert close(sum(r["capital"] for r in sch) + 200000, "1000000", "1e-15")
+
+
+def test_extra_reduce_cuota_keeps_term_and_lowers_payment():
+    base = run_ann()
+    out = run_ann(extra_type="reduce_cuota", extra_amount="200000", extra_after="3")
+    sch = out["schedule"]
+    assert len(sch) == 12 and sch[-1]["closing"] == 0
+    new_a = (D("1000000") * 0 + sch[2]["closing"]) / A.factor_pv(D("0.01"), 9)
+    assert close(sch[3]["payment"], new_a, "1e-15")
+    assert sch[3]["payment"] < base["summary"]["cuota"]
+    assert all(close(r["payment"], sch[3]["payment"], "1e-15") for r in sch[3:])
+    assert out["summary"]["total_interest"] < base["summary"]["total_interest"]
+
+
+def test_extra_with_anticipated_annuity_closes_in_zero():
+    for kind in ("reduce_cuota", "reduce_term"):
+        out = run_ann(annuity_type="anticipada", extra_type=kind, extra_amount="200000", extra_after="3")
+        assert out["schedule"][-1]["closing"] == 0
+
+
+def test_extra_validations():
+    with pytest.raises(ValidationError):
+        run_ann(extra_type="reduce_term", extra_amount="999999999", extra_after="3")   # supera el saldo
+    with pytest.raises(ValidationError):
+        run_ann(extra_type="reduce_term", extra_amount="1000", extra_after="12")        # no es la última cuota
+    with pytest.raises(ValidationError):
+        run_ann(extra_type="reduce_term", extra_after="3")                              # falta el valor
+    with pytest.raises(ValidationError):
+        run_ann(mode="fv_cuota", cuota="1000", extra_type="reduce_term", extra_amount="10", extra_after="2")

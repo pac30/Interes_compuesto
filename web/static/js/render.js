@@ -182,7 +182,7 @@ export function renderProcedure(el, prefix, steps) {
 /* ---------- Tablas ---------- */
 const COLS = {
   loan: [["n", "Cuota", "int"], ["date", "Fecha de pago", "date"], ["opening", "Saldo inicial", "money"], ["interest", "Interés", "money"],
-    ["capital", "Abono a capital", "money"], ["payment", "Valor de la cuota", "money"], ["insurance", "Seguro", "money", "ins"],
+    ["capital", "Abono a capital", "money"], ["payment", "Valor de la cuota", "money"], ["extra", "Abono extra", "money", "extra"], ["insurance", "Seguro", "money", "ins"],
     ["total", "Cuota + seguro", "money", "ins"], ["closing", "Saldo final", "money"]],
   savings: [["n", "Aporte", "int"], ["date", "Fecha", "date"], ["opening", "Saldo inicial", "money"], ["interest", "Interés", "money"],
     ["capital", "Aporte a capital", "money"], ["payment", "Valor de la cuota", "money"], ["closing", "Saldo final", "money"]],
@@ -206,12 +206,13 @@ export function renderSchedule(el, result) {
   if (!result.schedule || !COLS[kind]) { el.innerHTML = ""; return false; }
   let cols = COLS[kind];
   const hasIns = result.schedule.some((r) => Number(r.insurance) > 0);
-  cols = cols.filter((c) => c[3] !== "ins" || hasIns);
+  const hasExtra = result.schedule.some((r) => r.extra !== null && r.extra !== undefined);
+  cols = cols.filter((c) => (c[3] !== "ins" || hasIns) && (c[3] !== "extra" || hasExtra));
   let h = '<div class="table-wrap"><table class="data"><thead><tr>' +
     cols.map((c) => `<th class="${c[2] === "text" ? "left" : ""}">${c[1]}</th>`).join("") + "</tr></thead><tbody>";
   result.schedule.forEach((r) => {
-    h += `<tr class="${r.phase === "gracia" ? "grace" : ""}">` + cols.map((c) =>
-      `<td class="${c[2] === "text" ? "left" : ""}">${cell(r[c[0]], c[2])}${c[0] === "n" && r.phase === "gracia" ? " (gracia)" : ""}</td>`).join("") + "</tr>";
+    h += `<tr class="${r.extra ? "best" : ""}">` + cols.map((c) =>
+      `<td class="${c[2] === "text" ? "left" : ""}">${cell(r[c[0]], c[2])}</td>`).join("") + "</tr>";
   });
   el.innerHTML = h + "</tbody></table></div>";
   return true;

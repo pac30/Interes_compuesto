@@ -2,7 +2,7 @@
 from decimal import Decimal
 
 from .dates import add_months
-from .precision import ZERO, D
+from .precision import ZERO, D, dpow
 
 EPS = Decimal("1e-20")
 
@@ -28,28 +28,57 @@ class Insurance:
         return ZERO
 
 
-def loan_schedule(pv, i, n, cuota, due=False, start=None, p=1, insurance=None, adjust_last=False):
-    """Cronograma de un crédito.
+def _annuity_factor(i, n):
+    """a_{n|i} de una anualidad vencida (n puede ser 0 solo si no hay cuotas pendientes)."""
+    return D(n) if i == 0 else (1 - dpow(1 + i, -D(n))) / i
+
+
+def loan_schedule(pv, i, n, cuota, due=False, start=None, p=1, insurance=None, adjust_last=False, extra=None):
+    """Plan de pagos de un crédito.
 
     - due:   cuotas anticipadas (la primera cuota se paga al inicio del primer periodo de pago).
     - adjust_last: la última cuota paga exactamente el saldo (cuando n no es entero).
+    - extra: (tipo, valor, k) abono extraordinario a capital que se paga junto con la cuota k.
+        tipo 'reduce_cuota': el plazo no cambia; la cuota se recalcula con el saldo restante.
+        tipo 'reduce_term' : la cuota no cambia; se acorta el plazo (la última cuota paga el saldo).
     """
     ins = insurance or Insurance()
-    rows, bal, k = [], D(pv), 0
-    for j in range(1, n + 1):
-        k += 1
+    kind, extra_amt, extra_k = extra if extra else (None, ZERO, 0)
+    rows, bal = [], D(pv)
+    pay_amt, n_end, j, shortened = D(cuota), n, 0, False
+    while j < n_end:
+        j += 1
         opening = bal
         interest = ZERO if (due and j == 1) else opening * i
-        last = j == n
-        pay = (opening + interest) if (adjust_last and last) else D(cuota)
+        if shortened:  # plazo reducido: se paga la cuota hasta que alcance el saldo
+            last = opening + interest <= pay_amt * (1 + D("1e-30"))
+            pay = (opening + interest) if last else pay_amt
+            if not last:
+                n_end = j + 1
+        else:
+            last = j == n_end
+            pay = (opening + interest) if (adjust_last and last) else pay_amt
         capital = pay - interest
         closing = _clean(opening - capital)
+        row_extra = None
+        if kind and j == extra_k:
+            row_extra = D(extra_amt)
+            closing = _clean(closing - row_extra)
+            if kind == "reduce_cuota":
+                pay_amt = closing / _annuity_factor(i, n - j)
+            else:
+                shortened = True
+                n_end = j + 1  # se sigue mientras quede saldo
         offset = (j - 1) if due else j
         seg = ins.amount(opening)
-        rows.append({"n": k, "date": add_months(start, offset * p) if start else None, "phase": "pago",
+        rows.append({"n": j, "date": add_months(start, offset * p) if start else None, "phase": "pago",
                      "opening": opening, "interest": interest, "capital": capital, "payment": pay,
-                     "insurance": seg, "total": pay + seg, "closing": closing})
+                     "extra": row_extra, "insurance": seg, "total": pay + seg, "closing": closing})
         bal = closing
+        if shortened and closing == 0:
+            break
+        if j > 5000:
+            break
     return rows
 
 

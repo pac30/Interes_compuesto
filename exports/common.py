@@ -9,8 +9,8 @@ MODULE_TITLES = {"rates": "Tasas de interés", "compound": "Interés compuesto",
 SCHEDULE_COLUMNS = {
     "loan": [("n", "Cuota", "int"), ("date", "Fecha de pago", "date"), ("opening", "Saldo inicial", "money"),
              ("interest", "Interés", "money"), ("capital", "Abono a capital", "money"),
-             ("payment", "Valor de la cuota", "money"), ("insurance", "Seguro", "money"),
-             ("total", "Cuota + seguro", "money"), ("closing", "Saldo final", "money")],
+             ("payment", "Valor de la cuota", "money"), ("extra", "Abono extra", "money"),
+             ("insurance", "Seguro", "money"), ("total", "Cuota + seguro", "money"), ("closing", "Saldo final", "money")],
     "savings": [("n", "Aporte", "int"), ("date", "Fecha", "date"), ("opening", "Saldo inicial", "money"),
                 ("interest", "Interés", "money"), ("capital", "Aporte a capital", "money"),
                 ("payment", "Valor de la cuota", "money"), ("closing", "Saldo final", "money")],
@@ -20,6 +20,14 @@ SCHEDULE_COLUMNS = {
               ("date", "Fecha", "date"), ("amount", "Valor", "money"), ("t", "t (años)", "num"),
               ("factor", "Factor (1+i)^t", "num"), ("value_f", "Valor en fecha focal", "money")],
 }
+
+
+def schedule_columns(kind, rows):
+    """Columnas del plan de pagos; "Abono extra" solo aparece si hay algún abono."""
+    cols = SCHEDULE_COLUMNS[kind]
+    if not any(r.get("extra") not in (None, "") for r in rows or []):
+        cols = [c for c in cols if c[0] != "extra"]
+    return cols
 
 
 def to_num(v):

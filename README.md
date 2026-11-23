@@ -40,6 +40,7 @@ tests/        pytest
 * Anticipadas: i = iₐ/(1−iₐ), iₐ = i/(1+i). Una nominal nunca pasa directo a anticipada: primero i → iₐ y luego jₐ = iₐ·m.
 * Ecuaciones de valor / fechas focales: nunca tasa nominal, siempre efectiva; tiempo en años con base 365 (o 360 / 30/360).
 * Anualidades: vencida y anticipada (sin diferidas ni perpetuas). El plan de pagos reemplaza a la "amortización".
+* Amortización: normal, o con abono extra a capital que **reduce la cuota** (mismo plazo) o **reduce el plazo** (misma cuota).
 * Seguro: valor mensual (% sobre saldo, % sobre monto inicial o fijo); en periodos de varios meses se multiplica por los
   meses del periodo.
 * Si no se indica fecha inicial se usa la de hoy (y se avisa).

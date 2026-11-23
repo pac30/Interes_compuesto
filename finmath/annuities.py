@@ -19,6 +19,7 @@ MODES = {
 TYPES = {"vencida": "Anualidad vencida", "anticipada": "Anualidad anticipada"}
 PAY_PERIODS = {1: "Mensual", 2: "Bimestral", 3: "Trimestral", 6: "Semestral", 12: "Anual"}
 INSURANCE = ("none", "pct_balance", "pct_initial", "fixed")
+EXTRA_TYPES = ("none", "reduce_cuota", "reduce_term")
 
 
 def factor_pv(i, n, due=False):
@@ -134,7 +135,13 @@ def run(data):
     age_in = rd.integer("age", "Edad", required=False, min=0, max=120)
     ins_kind = rd.choice("insurance_type", "Tipo de seguro", INSURANCE, "none")
     ins_val = rd.dec("insurance_value", "Valor del seguro", required=ins_kind != "none", min=0) or ZERO
+    extra_kind = rd.choice("extra_type", "Tipo de amortización", EXTRA_TYPES, "none")
+    extra_amt = rd.dec("extra_amount", "Valor del abono extra", required=extra_kind != "none", gt=0)
+    extra_k = rd.integer("extra_after", "Cuota del abono extra", required=extra_kind != "none", min=1)
     rd.done()
+    if extra_kind != "none" and mode not in ("cuota_pv", "pv_cuota"):
+        raise ValidationError({"extra_type": "El abono extra solo está disponible al calcular la cuota o el monto "
+                                             "financiable de un crédito."})
 
     warnings = []
     spec = R.get_spec(cat, code)
@@ -236,6 +243,24 @@ def run(data):
             proc.math("n = -\\dfrac{\\ln\\left(1-\\dfrac{PV \\, i}{A" + ("(1+i)" if due else "") +
                       "}\\right)}{\\ln(1+i)}")
 
+    if extra_kind != "none":
+        proc.text("**Abono extra a capital.** Un abono extraordinario reduce el saldo de la deuda. Se puede usar para "
+                  "**reducir la cuota** (el plazo no cambia) o para **reducir el plazo** (la cuota no cambia). Con $S$ el "
+                  "saldo después de pagar la cuota $k$ y $E$ el abono:", academic=False)
+        proc.math("S' = S - E")
+        if extra_kind == "reduce_cuota":
+            proc.math("A' = \\dfrac{S'\\,i}{1-(1+i)^{-(n-k)}}", result=True)
+            proc.where([("S", "saldo después de pagar la cuota k"), ("E", "valor del abono extra"),
+                        ("S'", "saldo después del abono"), ("A'", "nueva cuota"), ("A", "cuota original"),
+                        ("i", "tasa **efectiva** del periodo de pago"), ("k", "cuota con la que se paga el abono"),
+                        ("n", "número de cuotas original (el plazo no cambia)")])
+        else:
+            proc.math("n' = -\\dfrac{\\ln\\left(1-\\dfrac{S'\\,i}{A}\\right)}{\\ln(1+i)}", result=True)
+            proc.where([("S", "saldo después de pagar la cuota k"), ("E", "valor del abono extra"),
+                        ("S'", "saldo después del abono"), ("A", "cuota (se mantiene igual)"),
+                        ("i", "tasa **efectiva** del periodo de pago"), ("k", "cuota con la que se paga el abono"),
+                        ("n'", "cuotas que faltan después del abono (la última paga el saldo)")])
+
     proc.step(5, "Sustitución de valores")
     proc.step(6, "Desarrollo matemático")
     if mode == "cuota_pv":
@@ -308,6 +333,7 @@ def run(data):
 
     # ---------- plan de pagos y totales
     schedule = None
+    n_final, total_extra, interest_saved, base_interest = n, ZERO, None, None
     if savings:
         schedule = AM.savings_schedule(i, n, cuota, due, start, p)
         total_cuotas = cuota * n
@@ -317,15 +343,56 @@ def run(data):
     else:
         ins_obj = AM.Insurance(ins_kind, ins_val, pv_res, p)
         adjust = mode == "n_pv_cuota" and abs(n_exact - n) > D("1e-12")
-        schedule = AM.loan_schedule(pv_res, i, n, cuota, due, start, p, ins_obj, adjust)
+        base = AM.loan_schedule(pv_res, i, n, cuota, due, start, p, ins_obj, adjust)
+        schedule = base
+        if extra_kind != "none":
+            if extra_k >= n:
+                raise ValidationError({"extra_after": f"El abono debe pagarse con una cuota anterior a la última "
+                                                      f"(entre 1 y {n - 1})."})
+            saldo_k = base[extra_k - 1]["closing"]
+            if extra_amt >= saldo_k:
+                raise ValidationError({"extra_amount": f"El abono ({M(extra_amt)}) iguala o supera el saldo después "
+                                                       f"de la cuota {extra_k} ({M(saldo_k)}): sería cancelar la deuda."})
+            schedule = AM.loan_schedule(pv_res, i, n, cuota, due, start, p, ins_obj, adjust,
+                                        extra=(extra_kind, extra_amt, extra_k))
+        n_final = len(schedule)
         total_cuotas = sum((r["payment"] for r in schedule), ZERO)
+        total_extra = sum((r["extra"] or ZERO for r in schedule), ZERO)
         total_ins = sum((r["insurance"] for r in schedule), ZERO)
-        total_interest = total_cuotas - pv_res
-        total_paid = total_cuotas + total_ins
+        total_interest = total_cuotas + total_extra - pv_res
+        total_paid = total_cuotas + total_extra + total_ins
         if ins_kind != "none":
             warnings.append("Seguro: el valor ingresado es mensual; en periodos de varios meses se multiplica "
                             "por el número de meses del periodo.")
-    end_date = add_months(start, n * p)
+        if extra_kind != "none":
+            base_interest = sum((r["payment"] for r in base), ZERO) - pv_res
+            interest_saved = base_interest - total_interest
+            s_after = saldo_k - extra_amt
+            step6 = next(st for st in proc.steps if st["n"] == 6)
+
+            def add6(kind, content, **kw):
+                step6["items"].append({"kind": kind, "content": content, "academic": kw.get("academic", False),
+                                       "result": kw.get("result", False)})
+            add6("text", f"**Abono extra:** {M(extra_amt)} junto con la cuota {extra_k}.")
+            add6("math", f"S' = {M(saldo_k)} - {M(extra_amt)} = {M(s_after)}")
+            if extra_kind == "reduce_cuota":
+                rem = n - extra_k
+                F2 = AM._annuity_factor(i, rem)
+                new_cuota = s_after / F2
+                add6("math", f"a_{{{rem}|i}} = \\dfrac{{1-(1+{N(i, 12)})^{{-{rem}}}}}{{{N(i, 12)}}} = {N(F2, 12)}"
+                     if i != 0 else f"a_{{{rem}|i}} = {rem}", academic=True)
+                add6("math", f"A' = \\dfrac{{{M(s_after)}}}{{{N(F2, 12)}}} = {M(new_cuota)}", result=True)
+                add6("text", f"La cuota baja de {M(cuota)} a **{M(new_cuota)}** y el plazo sigue siendo de {n} cuotas.")
+            else:
+                n_rem = n_from_pv_cuota(s_after, cuota, i, False)
+                add6("math", f"n' = {N(n_rem, 6)}\\ \\text{{cuotas restantes}} \\Rightarrow "
+                             f"{extra_k} + \\lceil {N(n_rem, 6)} \\rceil = {n_final}\\ \\text{{cuotas en total}}",
+                     result=True)
+                add6("text", f"La cuota se mantiene en {M(cuota)}, pero el crédito termina en **{n_final}** cuotas "
+                             f"en lugar de {n}.")
+            add6("text", f"Intereses totales: {M(total_interest)} (sin abono serían {M(base_interest)}). "
+                         f"Ahorro en intereses: **{M(interest_saved)}**.")
+    end_date = add_months(start, (n_final if not savings else n) * p)
 
     # ---------- Paso 7
     proc.step(7, "Resultado final")
@@ -341,8 +408,13 @@ def run(data):
         else:
             what = f"Se requieren **{N(n_exact, 4)}** cuotas (se pagan {n})."
         proc.text(what)
-        proc.math(f"\\text{{Total pagado}} = nA = {M(total_cuotas)}; \\quad I = {M(total_cuotas)} - {M(pv_res)} = "
-                  f"{M(total_interest)}", result=True)
+        if extra_kind != "none":
+            proc.math(f"\\text{{Total pagado}} = \\sum A + E = {M(total_cuotas)} + {M(total_extra)} = "
+                      f"{M(total_cuotas + total_extra)}; \\quad I = {M(total_cuotas + total_extra)} - {M(pv_res)} = "
+                      f"{M(total_interest)}", result=True)
+        else:
+            proc.math(f"\\text{{Total pagado}} = nA = {M(total_cuotas)}; \\quad I = {M(total_cuotas)} - {M(pv_res)} = "
+                      f"{M(total_interest)}", result=True)
         if ins_kind != "none":
             proc.text(f"Seguros pagados: {M(total_ins)}; total a pagar con seguros: {M(total_paid)}.")
         proc.text("El plan de pagos muestra cómo cada cuota se divide en interés (sobre el saldo) y abono a capital.")
@@ -383,10 +455,18 @@ def run(data):
                       "value": first_ins, "kind": "money", "step": 7})
         cards.append({"key": "cuota_seguro", "label": f"Cuota {per_label} con seguros",
                       "value": cuota + first_ins, "kind": "money", "step": 7})
-    cards.append({"key": "n", "label": "Cantidad de cuotas", "value": n_exact if mode == "n_pv_cuota" else n,
+    cards.append({"key": "n", "label": "Cantidad de cuotas", "value": n_exact if mode == "n_pv_cuota" else n_final,
                   "kind": "num" if mode == "n_pv_cuota" else "int", "step": 6 if mode == "n_pv_cuota" else 1})
-    cards.append({"key": "plazo", "label": "Plazo total", "value": n * p, "kind": "months", "step": 1})
+    cards.append({"key": "plazo", "label": "Plazo total", "value": n_final * p, "kind": "months", "step": 1})
     cards.append({"key": "interest", "label": "Total de intereses", "value": total_interest, "kind": "money", "step": 7})
+    if extra_kind == "reduce_cuota":
+        cards.append({"key": "new_cuota", "label": f"Nueva cuota {per_label} (tras el abono)",
+                      "value": schedule[extra_k]["payment"], "kind": "money", "step": 6})
+    if extra_kind == "reduce_term":
+        cards.append({"key": "saved_n", "label": "Cuotas ahorradas", "value": n - n_final, "kind": "int", "step": 6})
+    if extra_kind != "none":
+        cards.append({"key": "saved_int", "label": "Intereses ahorrados", "value": interest_saved, "kind": "money",
+                      "step": 6})
     cards.append({"key": "paid", "label": "Total a pagar" if not savings else "Total aportado",
                   "value": total_paid, "kind": "money", "step": 7})
     if not savings:
@@ -398,6 +478,6 @@ def run(data):
     return {"module": "annuity", "mode": mode, "cards": cards, "procedure": proc.to_list(),
             "schedule": schedule, "schedule_kind": "savings" if savings else "loan", "chart": chart,
             "warnings": warnings,
-            "summary": {"pv": pv_res, "fv": fv_res, "cuota": cuota, "n": n, "i": i, "ea": ea, "p": p,
+            "summary": {"pv": pv_res, "fv": fv_res, "cuota": cuota, "n": n_final, "i": i, "ea": ea, "p": p,
                         "total_interest": total_interest, "total_paid": total_paid, "total_insurance": total_ins,
                         "first_insurance": first_ins, "end_date": end_date, "age": age}}

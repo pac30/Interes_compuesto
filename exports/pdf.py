@@ -7,7 +7,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from .common import SCHEDULE_COLUMNS, card_text, procedure_lines, to_num
+from .common import SCHEDULE_COLUMNS, schedule_columns, card_text, procedure_lines, to_num
 
 NAVY = colors.HexColor("#1F3A5F")
 
@@ -67,7 +67,7 @@ def build(result, meta):
 
     kind = result.get("schedule_kind")
     if result.get("schedule") and kind in SCHEDULE_COLUMNS:
-        cols = SCHEDULE_COLUMNS[kind]
+        cols = schedule_columns(kind, result["schedule"])
         story += [Spacer(1, 10), Paragraph("Tabla", h2)]
         data = [[h for _, h, _ in cols]] + [[_cell(r.get(k), t) for k, _, t in cols] for r in result["schedule"]]
         story.append(_table(data))

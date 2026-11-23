@@ -5,7 +5,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .common import SCHEDULE_COLUMNS, card_text, procedure_lines, to_num
+from .common import SCHEDULE_COLUMNS, schedule_columns, card_text, procedure_lines, to_num
 
 HEAD_FILL = PatternFill("solid", fgColor="1F3A5F")
 HEAD_FONT = Font(bold=True, color="FFFFFF")
@@ -44,7 +44,7 @@ def build(result, meta):
 
     kind = result.get("schedule_kind")
     if result.get("schedule") and kind in SCHEDULE_COLUMNS:
-        cols = SCHEDULE_COLUMNS[kind]
+        cols = schedule_columns(kind, result["schedule"])
         wt = wb.create_sheet("Tabla")
         _header(wt, 1, [h for _, h, _ in cols])
         for ri, row in enumerate(result["schedule"], 2):

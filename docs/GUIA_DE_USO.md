@@ -31,7 +31,7 @@ Notas:
 ```bash
 pip install -r requirements.txt
 python app.py          # abre http://127.0.0.1:5000
-python -m pytest -q    # pruebas matemáticas (36)
+python -m pytest -q    # pruebas matemáticas (43)
 ```
 
 ### Regenerar el ejecutable
@@ -99,11 +99,22 @@ Calcula créditos y planes de ahorro con anualidades.
 - **Fecha inicial** (y final opcional). Si no la indica, usa la de hoy y se lo avisa.
 - **Seguro:** ninguno, % mensual sobre saldo, % mensual sobre el monto inicial, o valor fijo mensual.
 
+**Amortización (cómo se paga el crédito):**
+
+| Opción | Qué hace |
+|---|---|
+| **Normal** | Cuota fija hasta el final del plazo, sin pagos extra. |
+| **Abono extra, reducir la cuota** | Con la cuota n.º *k* se paga además un abono extra a capital. El **plazo no cambia**, pero la cuota baja desde la cuota *k+1*: A' = S'·i / [1 − (1+i)^−(n−k)], con S' = saldo − abono. |
+| **Abono extra, reducir el plazo** | El mismo abono, pero la **cuota se mantiene** y el crédito termina antes: n' = −ln[1 − S'·i/A] / ln(1+i); la última cuota paga el saldo que quede. |
+
+Los dos tipos de abono ahorran intereses (la tarjeta "Intereses ahorrados" muestra cuánto). El plan de pagos marca la fila del abono y agrega la columna "Abono extra". Disponible al calcular la cuota o el monto financiable de un crédito.
+
 **Resultados:** cuota, total pagado, intereses, capital amortizado, seguro, plan de pagos y gráficos.
 
 Reglas que conviene conocer:
 - El seguro "% sobre saldo" no se admite al calcular el monto financiable, porque la cuota total dejaría de ser constante.
 - Las anualidades diferidas y las perpetuas no están incluidas.
+- El abono extra debe pagarse con una cuota anterior a la última y ser menor que el saldo; si no, la aplicación lo rechaza.
 - Si el plazo no es compatible con la periodicidad (por ejemplo 10 meses con pagos trimestrales), la aplicación lo rechaza y lo explica.
 
 ### 4.2 Interés compuesto
@@ -131,7 +142,7 @@ Convierte una tasa de un tipo a otro: ingrese el valor, su tipo (EA, EM, NM, TV,
 
 - Efectiva ↔ nominal **del mismo periodo**: i = j / m  y  j = i · m.
 - Cualquier otro cambio de periodo usa **tasas equivalentes**: (1+i₁)^n₁ = (1+i₂)^n₂, donde n es cuántas veces cabe el periodo en un año.
-- Tasas anticipadas: i = iₐ / (1 − iₐ)  e  iₐ = i / (1 + i). **Solo** se pasa de efectiva a anticipada; una nominal nunca se convierte directamente a anticipada. Si se necesita una nominal anticipada, primero se pasa de efectiva a efectiva anticipada y luego jₐ = iₐ · m.
+- Tasas anticipadas: i = iₐ / (1 − iₐ)  e  iₐ = i / (1 + i). **Solo** se pasa de efectiva a anticipada; una nominal nunca se convierte directamente a anticipada. Si se necesita una nominal anticipada, primero se pasa de efectiva a efectiva anticipada y luego jₐ = iₐ · m. Al revés, de nominal anticipada a efectiva: iₐ = jₐ / m y luego i = iₐ / (1 − iₐ). Las tasas anticipadas (efectivas y nominales) se pueden usar como dato de entrada y como resultado en la conversión.
 
 ### 4.4 Fechas focales
 
@@ -153,7 +164,12 @@ Compara créditos con los mismos datos base y distinto plazo (por ejemplo 12, 24
 
 Tabla de consulta (solo lectura) con las siglas disponibles, su nombre completo, tipo, periodo, número de periodos por año (m) y si son vencidas o anticipadas, junto con las reglas de conversión.
 
-Siglas: EA, ES, EV (efectivas anual, semestral y cuatrimestral), ET, EB, EM, NA, NS, NV, NT, NB, NM (nominales capitalizables), TV, MV (nominales trimestre y mes vencido) y TA, MA (nominales trimestre y mes anticipado).
+Siglas:
+
+- Efectivas vencidas: EA, ES, EV (cuatrimestral), ET, EB, EM.
+- Nominales vencidas (capitalizables): NA, NS, NV, NT, NB, NM, y TV, MV (trimestre y mes vencido).
+- **Efectivas anticipadas:** EAA, ESA, EVA, ETA, EBA, EMA.
+- **Nominales anticipadas:** NAA, NSA, NVA, TA (trimestre anticipado), NBA, MA (mes anticipado).
 
 ## 5. Exportar
 

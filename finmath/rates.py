@@ -68,6 +68,18 @@ CATALOG = [
     RateSpec("MV", "Nominal Anual Mes Vencido", "nominal", 1),
     RateSpec("TA", "Nominal Anual Trimestre Anticipado", "nominal", 3, anticipated=True),
     RateSpec("MA", "Nominal Anual Mes Anticipado", "nominal", 1, anticipated=True),
+    # --- efectivas anticipadas (ia): se obtienen de la efectiva vencida con ia = i/(1+i)
+    RateSpec("EAA", "Efectiva Anual Anticipada", "effective", 12, anticipated=True),
+    RateSpec("ESA", "Efectiva Semestral Anticipada", "effective", 6, anticipated=True),
+    RateSpec("EVA", "Efectiva Cuatrimestral Anticipada", "effective", 4, anticipated=True),
+    RateSpec("ETA", "Efectiva Trimestral Anticipada", "effective", 3, anticipated=True),
+    RateSpec("EBA", "Efectiva Bimestral Anticipada", "effective", 2, anticipated=True),
+    RateSpec("EMA", "Efectiva Mensual Anticipada", "effective", 1, anticipated=True),
+    # --- nominales anticipadas (ja = ia·m); TA y MA son las de trimestre y mes
+    RateSpec("NAA", "Nominal Anual Anticipada (capitalización anual)", "nominal", 12, anticipated=True),
+    RateSpec("NSA", "Nominal Anual capitalizable Semestre Anticipado", "nominal", 6, anticipated=True),
+    RateSpec("NVA", "Nominal Anual capitalizable Cuatrimestre Anticipado", "nominal", 4, anticipated=True),
+    RateSpec("NBA", "Nominal Anual capitalizable Bimestre Anticipado", "nominal", 2, anticipated=True),
 ]
 
 
@@ -249,6 +261,10 @@ def run(data):
         if r["same"]:
             continue
         proc.text(f"**{r['name']} ({r['code']})** — {r['description']}")
+        if cat[r["code"]].anticipated and cat[r["code"]].kind == "nominal":
+            proc.text("Una nominal anticipada no se obtiene directamente: primero la efectiva se pasa a efectiva "
+                      "anticipada ($i_a = i/(1+i)$) y luego esa efectiva anticipada se pasa a nominal anticipada "
+                      "($j_a = i_a \\cdot m$).", academic=False)
         for ln in r["latex"][:-1]:
             proc.math(ln, academic=True)
         proc.math(r["latex"][-1])
