@@ -217,15 +217,27 @@
       <section class="module" id="mod-focal" data-title="Fechas focales">
         <div class="layout">
           <form class="panel form" data-endpoint="focal" autocomplete="off">
-            <h2>Equivalencia en fecha focal</h2>
-            <fieldset><legend>Fechas</legend>
-              <div class="row2">
+            <h2>Ecuaciones de valor · fecha focal</h2>
+            <label class="field"><span>Cargar un ejercicio de ejemplo</span>
+              <select id="focalPreset"><option value="">— Elegir ejercicio —</option></select></label>
+            <p class="hint" id="focalPresetText"></p>
+            <fieldset><legend>Tiempo</legend>
+              <label class="field"><span>Medir el tiempo en</span>
+                <select name="time_mode"><option value="periods">Periodos (mes 0, mes 5, …)</option><option value="dates">Fechas del calendario</option></select></label>
+              <div class="row2" data-when="time_mode=periods">
+                <label class="field"><span>Cada periodo es</span>
+                  <select name="period_months"><option value="1">Mes</option><option value="2">Bimestre</option><option value="3">Trimestre</option><option value="4">Cuatrimestre</option><option value="6">Semestre</option><option value="12">Año</option></select></label>
+                <label class="field"><span>Periodo focal</span><input type="number" name="focal_period" min="0" step="any" value="12"></label>
+              </div>
+              <div class="row2" data-when="time_mode=dates">
                 <label class="field"><span>Fecha inicial</span><input type="date" name="start_date" value="2025-01-01"></label>
                 <label class="field"><span>Fecha final</span><input type="date" name="end_date" value="2026-01-01"></label>
               </div>
-              <label class="field"><span>Fecha focal</span><input type="date" name="focal_date" value="2025-07-01"></label>
-              <label class="field"><span>Conteo de tiempo</span>
-                <select name="basis"><option value="365">Años de 365 días</option><option value="360">Años de 360 días</option><option value="30/360">Convención 30/360</option></select></label>
+              <div class="row2" data-when="time_mode=dates">
+                <label class="field"><span>Fecha focal</span><input type="date" name="focal_date" value="2025-07-01"></label>
+                <label class="field"><span>Conteo de tiempo</span>
+                  <select name="basis"><option value="365">Años de 365 días</option><option value="360">Años de 360 días</option><option value="30/360">Convención 30/360</option></select></label>
+              </div>
             </fieldset>
             <fieldset><legend>Tasa para trasladar</legend>
               <div class="row2 rate-row">
@@ -235,7 +247,7 @@
               <p class="hint rate-desc"></p>
             </fieldset>
             <fieldset><legend>Obligaciones y pagos</legend>
-              <p class="hint">Deje el valor en blanco en <b>una</b> fila para calcularlo (incógnita).</p>
+              <p class="hint">Deje el valor en blanco para calcularlo (incógnita). Si deja varias filas en blanco, todas son el <b>mismo</b> valor x (por ejemplo, tres cuotas iguales). Lado <b>deuda / depósito</b> = lo que se debe o se entrega; lado <b>pago / retiro</b> = lo que se paga o se retira. Si una deuda ya tiene intereses propios, abra «intereses propios» y escriba su tasa y su plazo original.</p>
               <div id="focalItems" class="items"></div>
               <button type="button" class="btn ghost" id="addFocalItem">+ Agregar fila</button>
             </fieldset>

@@ -239,11 +239,72 @@ def test_focal_capitalizes_and_discounts():
     assert rows[0]["factor"] > 1 and rows[1]["factor"] < 1
 
 
-def test_focal_two_unknowns_rejected():
+def test_focal_unknown_cancels_is_rejected():
     with pytest.raises(ValidationError):
         F.run({"focal_date": "2025-01-01", "rate_code": "EA", "rate_value": "10",
-               "items": [{"date": "2025-01-01", "amount": "", "group": "deuda"},
+               "items": [{"date": "2025-02-01", "amount": "", "group": "deuda"},
                          {"date": "2025-02-01", "amount": "", "group": "pago"}]})
+
+
+def _P(label, group, period, amount="", **kw):
+    return dict(label=label, group=group, period=str(period), amount=str(amount), **kw)
+
+
+def _focal(rate, code, focal, items, pm="1"):
+    return F.run({"time_mode": "periods", "period_months": pm, "focal_period": str(focal), "rate_value": rate,
+                  "rate_code": code, "items": items})
+
+
+def test_focal_periods_saldo_mes_12():
+    # Deuda 10.000.000 al 2 % mensual; abono de 7.000.000 en el mes 5; saldo en el mes 12
+    out = _focal("2", "EM", 12, [_P("Deuda", "deuda", 0, 10000000), _P("Abono", "pago", 5, 7000000),
+                                 _P("Saldo", "pago", 12)])
+    expected = D(10000000) * D("1.02") ** 12 - D(7000000) * D("1.02") ** 7
+    assert close(out["summary"]["unknown"], expected, "1e-15")
+
+
+def test_focal_periods_nominal_is_converted_to_effective():
+    # 24 % nominal mes vencido -> 2 % efectivo mensual (nunca la nominal en la ecuación)
+    out = _focal("24", "MV", 0, [_P("Auto", "deuda", 0, 60000000), _P("Inicial", "pago", 0, 15000000),
+                                 _P("M5", "pago", 5, 15000000), _P("M1", "pago", 1, 10000000),
+                                 _P("M12", "pago", 12, 10000000), _P("Saldo", "pago", 10)])
+    v = D("1.02")
+    exp = (D(60000000) - D(15000000) - D(15000000) / v ** 5 - D(10000000) / v - D(10000000) / v ** 12) * v ** 10
+    assert close(out["summary"]["rate"], "0.02", "1e-30")
+    assert close(out["summary"]["unknown"], exp, "1e-12")
+
+
+def test_focal_equal_unknown_payments_with_anticipated_nominal():
+    # tres cuotas iguales x en los meses 10, 11 y 12; 24 % nominal trimestral anticipada
+    out = _focal("24", "TA", 12, [_P("E", "deuda", 1, 600000), _P("F", "deuda", 2, 1500000),
+                                  _P("A", "deuda", 8, 800000), _P("x1", "pago", 10), _P("x2", "pago", 11),
+                                  _P("x3", "pago", 12)])
+    it = (D("0.06") / D("0.94") + 1) ** (D(1) / 3) - 1          # ia=6 % trimestral -> i trimestral -> mensual
+    v = 1 + it
+    lhs = D(600000) * v ** 11 + D(1500000) * v ** 10 + D(800000) * v ** 4
+    exp = lhs / (v ** 2 + v + 1)
+    assert close(out["summary"]["unknown"], exp, "1e-12")
+    assert out["summary"]["unknown_count"] == 3
+    assert all(r["amount"] == out["summary"]["unknown"] for r in out["schedule"] if r["unknown"])
+
+
+def test_focal_own_interest_maturity_value():
+    out = _focal("10", "EA", 12, [_P("Préstamo", "deuda", 6, 10000, own_rate="12", own_rate_code="EA",
+                                     own_term_months="18"),
+                                  _P("Deuda 2", "deuda", 9, 25000), _P("Hoy", "pago", 0, 20000),
+                                  _P("Único", "pago", 12)])
+    m = (D("1.1") ** (D(1) / 12))
+    S = D(10000) * D("1.12") ** D("1.5")
+    exp = S * m ** 6 + D(25000) * m ** 3 - D(20000) * m ** 12
+    assert close(out["summary"]["unknown"], exp, "1e-12")
+    assert close(out["schedule"][0]["amount"], S, "1e-20")
+
+
+def test_focal_result_does_not_depend_on_focal_period():
+    items = [_P("D", "deuda", 3, 320000), _P("H", "pago", 0, 100000), _P("P5", "pago", 5, 200000), _P("S", "pago", 3)]
+    xs = [_focal("3", "EM", f, items)["summary"]["unknown"] for f in (0, 3, 5)]
+    assert close(xs[0], xs[1], "1e-15") and close(xs[1], xs[2], "1e-15")
+    assert close(xs[1], D(320000) - D(100000) * D("1.03") ** 3 - D(200000) / D("1.03") ** 2, "1e-15")
 
 
 # ---------------- comparación ----------------

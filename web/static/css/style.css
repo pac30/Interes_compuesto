@@ -156,3 +156,8 @@ table.vars td:last-child { text-align: right; font-weight: 600; }
 }
 @media print { .sidebar, .topbar, .form { display: none; } }
 .simple .only-academic { display: none; }
+
+/* Fechas focales: periodo o fecha según el modo; intereses propios por fila */
+.items[data-mode="periods"] .it-date, .items[data-mode="dates"] .it-period { display: none; }
+.item-row .it-own summary { font-size: 12px; color: var(--muted); cursor: pointer; }
+.item-row .own-grid { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 6px; margin-top: 6px; }

@@ -106,12 +106,15 @@ export function renderCharts(el, module, chart) {
 
 function timelineSVG(ch) {
   const W = 1000, H = 330, L = 70, R = 930, AX = 165;
-  const t = (s) => new Date(s + "T00:00:00").getTime();
-  const all = ch.items.map((i) => t(i.date)).concat([t(ch.focal)]);
+  const byPeriod = ch.mode === "periods";
+  const t = (s) => byPeriod ? Number(s) : new Date(s + "T00:00:00").getTime();
+  const when = (s) => byPeriod ? `${ch.unit} ${num(s, 4)}` : date(s);
+  const pos = (it) => byPeriod ? it.period : it.date;
+  const all = ch.items.map((i) => t(pos(i))).concat([t(ch.focal)]);
   if (ch.start) all.push(t(ch.start));
   if (ch.end) all.push(t(ch.end));
   let min = Math.min(...all), max = Math.max(...all);
-  if (min === max) { min -= 864e5 * 15; max += 864e5 * 15; }
+  if (min === max) { const d = byPeriod ? 1 : 864e5 * 15; min -= d; max += d; }
   const pad = (max - min) * 0.04; min -= pad; max += pad;
   const X = (s) => L + ((t(s) - min) / (max - min)) * (R - L);
   const xf = X(ch.focal);
@@ -123,10 +126,10 @@ function timelineSVG(ch) {
     <text x="${X(ch[k])}" y="${AX + 24}" text-anchor="middle" font-size="11" style="fill:var(--muted)">${n} ${date(ch[k])}</text>`;
   });
   svg += `<line x1="${xf}" y1="14" x2="${xf}" y2="${H - 14}" stroke-dasharray="6 5" stroke-width="2" style="stroke:var(--accent)"/>
-  <text x="${xf}" y="12" text-anchor="middle" font-size="12" font-weight="700" style="fill:var(--accent)">FECHA FOCAL · ${date(ch.focal)}</text>`;
+  <text x="${xf}" y="12" text-anchor="middle" font-size="12" font-weight="700" style="fill:var(--accent)">FECHA FOCAL · ${when(ch.focal)}</text>`;
   const ups = [], downs = [];
   ch.items.forEach((it, idx) => {
-    const x = X(it.date), up = it.group === "deuda";
+    const x = X(pos(it)), up = it.side === "deuda";
     const list = up ? ups : downs, lvl = list.length % 3; list.push(idx);
     const ty = up ? 38 + lvl * 38 : AX + 52 + lvl * 38 + 0;
     const col = up ? "#b03a2e" : "#1e7e4f";
@@ -141,11 +144,11 @@ function timelineSVG(ch) {
     const anchor = x > R - 90 ? "end" : x < L + 90 ? "start" : "middle";
     const amount = it.unknown ? "x = " + money(it.amount) : money(it.amount);
     svg += `<text x="${x}" y="${ty}" text-anchor="${anchor}" font-size="12" font-weight="700" fill="${col}">${esc(it.label)}</text>
-    <text x="${x}" y="${ty + 14}" text-anchor="${anchor}" font-size="11" style="fill:var(--ink)">${date(it.date)} · ${esc(amount)}</text>
+    <text x="${x}" y="${ty + 14}" text-anchor="${anchor}" font-size="11" style="fill:var(--ink)">${when(pos(it))} · ${esc(amount)}</text>
     <text x="${x}" y="${ty + 27}" text-anchor="${anchor}" font-size="11" style="fill:var(--muted)">→ ${esc(money(it.value_f))} en foco</text>`;
   });
-  svg += `<text x="${L - 20}" y="${H - 4}" font-size="11" fill="#b03a2e">● Obligaciones (deudas)</text>
-  <text x="${L + 150}" y="${H - 4}" font-size="11" fill="#1e7e4f">● Pagos</text>
+  svg += `<text x="${L - 20}" y="${H - 4}" font-size="11" fill="#b03a2e">● Deudas / depósitos</text>
+  <text x="${L + 150}" y="${H - 4}" font-size="11" fill="#1e7e4f">● Pagos / retiros</text>
   <text x="${L + 220}" y="${H - 4}" font-size="11" style="fill:var(--accent)">⤳ Traslado a la fecha focal</text></svg>`;
   return svg;
 }
@@ -188,8 +191,8 @@ const COLS = {
     ["capital", "Aporte a capital", "money"], ["payment", "Valor de la cuota", "money"], ["closing", "Saldo final", "money"]],
   growth: [["n", "Periodo", "int"], ["date", "Fecha", "date"], ["opening", "Saldo inicial", "money"], ["interest", "Interés", "money"],
     ["closing", "Saldo final", "money"]],
-  focal: [["n", "#", "int"], ["label", "Obligación", "text"], ["group", "Grupo", "text"], ["date", "Fecha", "date"],
-    ["amount", "Valor", "money"], ["dir", "Movimiento", "text"], ["t", "t (años)", "num"], ["factor", "Factor (1+i)^t", "num"],
+  focal: [["n", "#", "int"], ["label", "Valor", "text"], ["group", "Lado", "text"], ["when", "Momento", "text"],
+    ["original", "Valor inicial", "money"], ["amount", "Valor al vencimiento", "money"], ["dir", "Movimiento", "text"], ["t", "t", "num"], ["factor", "Factor (1+i)^t", "num"],
     ["value_f", "Valor en fecha focal", "money"]],
 };
 

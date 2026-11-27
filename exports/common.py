@@ -16,8 +16,9 @@ SCHEDULE_COLUMNS = {
                 ("payment", "Valor de la cuota", "money"), ("closing", "Saldo final", "money")],
     "growth": [("n", "Periodo", "int"), ("date", "Fecha", "date"), ("opening", "Saldo inicial", "money"),
                ("interest", "Interés", "money"), ("closing", "Saldo final", "money")],
-    "focal": [("n", "#", "int"), ("label", "Obligación", "text"), ("group", "Grupo", "text"),
-              ("date", "Fecha", "date"), ("amount", "Valor", "money"), ("t", "t (años)", "num"),
+    "focal": [("n", "#", "int"), ("label", "Valor", "text"), ("group", "Lado", "text"),
+              ("when", "Momento", "text"), ("original", "Valor inicial", "money"),
+              ("amount", "Valor al vencimiento", "money"), ("t", "t", "num"),
               ("factor", "Factor (1+i)^t", "num"), ("value_f", "Valor en fecha focal", "money")],
 }
 

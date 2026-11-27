@@ -31,7 +31,7 @@ Notas:
 ```bash
 pip install -r requirements.txt
 python app.py          # abre http://127.0.0.1:5000
-python -m pytest -q    # pruebas matemáticas (43)
+python -m pytest -q    # pruebas matemáticas (48)
 ```
 
 ### Regenerar el ejecutable
@@ -40,7 +40,7 @@ Ejecute `build_exe.bat`. Crea un entorno temporal e instala PyInstaller. Necesit
 
 ## 3. Recorrido por la pantalla
 
-- **Barra lateral:** cambia de módulo (Simulador de cuotas, Interés compuesto, Tasas de interés, Fechas focales, Comparar simulaciones, Guía de tasas).
+- **Barra lateral:** cambia de módulo (Simulador de cuotas, Interés compuesto, Tasas de interés, Fechas focales (ecuaciones de valor), Comparar simulaciones, Guía de tasas).
 - **Barra superior:** selector de **moneda** (COP por defecto), interruptor **Sencilla / Académica** y botones **Excel** y **PDF**.
 - **Formulario (izquierda):** datos de entrada. Se recalcula solo cuando usted deja de escribir.
 - **Resultados (derecha), con tres pestañas:**
@@ -144,17 +144,41 @@ Convierte una tasa de un tipo a otro: ingrese el valor, su tipo (EA, EM, NM, TV,
 - Cualquier otro cambio de periodo usa **tasas equivalentes**: (1+i₁)^n₁ = (1+i₂)^n₂, donde n es cuántas veces cabe el periodo en un año.
 - Tasas anticipadas: i = iₐ / (1 − iₐ)  e  iₐ = i / (1 + i). **Solo** se pasa de efectiva a anticipada; una nominal nunca se convierte directamente a anticipada. Si se necesita una nominal anticipada, primero se pasa de efectiva a efectiva anticipada y luego jₐ = iₐ · m. Al revés, de nominal anticipada a efectiva: iₐ = jₐ / m y luego i = iₐ / (1 − iₐ). Las tasas anticipadas (efectivas y nominales) se pueden usar como dato de entrada y como resultado en la conversión.
 
-### 4.4 Fechas focales
+### 4.4 Ecuaciones de valor y fechas focales
 
-Traslada obligaciones y pagos a una fecha común para comparar o resolver una incógnita.
+Resuelve ejercicios de ecuaciones de valor: saldos, pagos únicos, refinanciaciones y cuotas iguales que reemplazan un plan de pagos.
 
-En una ecuación de valor la suma de activos es igual a la de pasivos, la de ingresos a la de egresos y la de deudas a la de pagos. Cada valor se traslada con V_F = V·(1+i)^t, donde **V_F** es el valor en la fecha focal, **V** el valor en su fecha, **i** la tasa **efectiva** y **t** la diferencia entre la fecha focal y la fecha del valor (en años). **Nunca se usa una tasa nominal**: siempre se convierte a efectiva.
+En una ecuación de valor la suma de activos es igual a la de pasivos, la de ingresos a la de egresos y la de deudas a la de pagos:
 
-1. Indique fecha inicial, fecha final, **fecha focal**, tasa y conteo de tiempo (365, 360 o 30/360).
-2. Agregue las obligaciones: etiqueta, grupo (**deuda** o **pago**), fecha y monto.
-3. Deje **un solo monto en blanco** si quiere que la aplicación lo calcule.
+Σ deudas · (1+i)^t = Σ pagos · (1+i)^t
 
-Resultado: línea de tiempo, ecuación de equivalencia (Σdeudas = Σpagos) y el valor de la incógnita o la diferencia entre ambos lados.
+donde **i** es la tasa **efectiva** (nunca se usa la nominal: si el ejercicio da una nominal, la aplicación la convierte primero) y **t** es la fecha focal menos el momento de cada valor (positivo: se capitaliza; negativo: se descuenta).
+
+**Cómo plantear un ejercicio**
+
+1. **Medir el tiempo en:** *Periodos* (lo normal en clase: mes 0 = hoy, mes 5, …) o *Fechas del calendario* (días reales con base 365, 360 o 30/360).
+2. En periodos, elija la duración de cada periodo (mes, trimestre, …) y el **periodo focal**. La tasa se convierte a la efectiva de ese periodo.
+3. Escriba la tasa tal como la da el enunciado (por ejemplo 24 % TA = nominal trimestral anticipada).
+4. Agregue cada valor en su lado:
+   - **Deuda / depósito:** lo que se debe, lo que se compra o lo que se deposita.
+   - **Pago / retiro:** lo que se paga o se retira, incluido el saldo que se busca.
+5. Deje en blanco el valor que se quiere hallar. Si deja **varias filas en blanco, todas son el mismo valor x** (por ejemplo "tres cuotas iguales").
+6. Si una deuda ya tiene intereses propios ("préstamo contratado a 18 meses al 12 %"), abra **Intereses propios** en esa fila y escriba su tasa y su plazo original en meses: primero se calcula su valor al vencimiento S = P(1+i)^n.
+
+El resultado muestra el diagrama (línea de tiempo con cada valor y su traslado al foco), la ecuación con los datos, el despeje de x y la tabla de traslado.
+
+**Ejercicios de ejemplo.** El selector "Cargar un ejercicio de ejemplo" trae seis ejercicios ya planteados:
+
+| Ejercicio | Planteamiento | Resultado |
+|---|---|---|
+| 1. Depósito de $100.000 al 30 % anual, retiros de $20.000 (mes 1) y $30.000 (mes 3) | Foco mes 6, tasa EA | Saldo = $59.673,49 |
+| 2. Sebastián: Q10.000 (préstamo a 18 meses al 12 %) y Q25.000; paga Q20.000 hoy | Foco mes 12, 10 % EA, interés compuesto | Pago único = Q16.034,34 |
+| 3. Deuda de $320.000 en el periodo 3; $100.000 hoy y $200.000 en el periodo 5 | Foco periodo 3, 3 % efectivo | Saldo = $22.208,12 |
+| 4. Empresa xyz: $10.000.000 al 2 % mensual, abono de $7.000.000 en el mes 5 | Foco mes 12 | Saldo = $4.641.618,27 |
+| 5. Pablo Pérez: auto de $60.000.000 | 24 % nominal mes vencido (2 % mensual) | Saldo mes 10 = $16.730.923,35 |
+| 6. Angelo Pulido: tres cuotas iguales en octubre, noviembre y diciembre | 24 % nominal trimestral anticipado | Cuota = $1.131.326,01 |
+
+> Ejercicio 2: el enunciado parece de un libro que usa **interés simple**; con interés simple el pago sería Q16.015. La aplicación usa interés compuesto, que es lo que se ve en el curso.
 
 ### 4.5 Comparar simulaciones
 

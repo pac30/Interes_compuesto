@@ -23,7 +23,7 @@ finmath/      Lógica financiera pura (sin Flask ni HTML). Decimal con 50 dígit
   compound.py       Escenarios A (FV), B (PV), C (tasa), D (tiempo)
   annuities.py      Vencida y anticipada; ahorro y crédito (plan de pagos); seguros
   amortization.py   Plan de pagos / tabla de acumulación
-  focal_dates.py    Equivalencia en fecha focal, incógnita, línea de tiempo
+  focal_dates.py    Ecuaciones de valor: periodos o fechas, varias cuotas iguales x, intereses propios, diagrama
   comparison.py     Comparación de simulaciones (12/24/36 meses, etc.)
   steps.py          Constructor del procedimiento (pasos 1-7, LaTeX)
   validation.py     Validación; pide los datos que faltan en vez de inventarlos
@@ -38,9 +38,12 @@ tests/        pytest
 * Nomenclatura: **i** efectiva (periódica), **j** nominal, **m** periodos por año, **iₐ** efectiva anticipada.
 * Efectiva ↔ nominal del mismo periodo: i = j/m, j = i·m. Otro cambio de periodo: tasas equivalentes (1+i₁)^n₁ = (1+i₂)^n₂.
 * Anticipadas: i = iₐ/(1−iₐ), iₐ = i/(1+i). Una nominal nunca pasa directo a anticipada: primero i → iₐ y luego jₐ = iₐ·m.
-* Ecuaciones de valor / fechas focales: nunca tasa nominal, siempre efectiva; tiempo en años con base 365 (o 360 / 30/360).
+* Ecuaciones de valor / fechas focales: nunca tasa nominal, siempre efectiva. Tiempo en periodos (tasa efectiva del
+  periodo, t = foco − periodo) o en fechas (EA, años con base 365, 360 o 30/360). Varias filas en blanco = misma x.
 * Anualidades: vencida y anticipada (sin diferidas ni perpetuas). El plan de pagos reemplaza a la "amortización".
 * Amortización: normal, o con abono extra a capital que **reduce la cuota** (mismo plazo) o **reduce el plazo** (misma cuota).
 * Seguro: valor mensual (% sobre saldo, % sobre monto inicial o fijo); en periodos de varios meses se multiplica por los
   meses del periodo.
 * Si no se indica fecha inicial se usa la de hoy (y se avisa).
+
+La guía en Word se regenera desde el Markdown con `python docs/build_docx.py`.
